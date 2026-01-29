@@ -1,0 +1,4 @@
+Variable,Missing_%,Little_p_value,Mécanisme
+SecondLargestPropertyUseType,50.38,1.0,MCAR
+SecondLargestPropertyUseTypeGFA,50.38,1.0,MCAR
+ENERGYSTARScore,34.31,1.0,MCAR

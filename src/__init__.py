@@ -31,7 +31,19 @@ from .preprocessing import (
     print_pipeline_summary
 )
 
+from .feature_engineering import (
+    create_ratio_features,
+    create_interaction_features,
+    create_temporal_features,
+    create_polynomial_features,
+    fit_aggregated_features,
+    transform_aggregated_features,
+    create_all_features,
+    print_feature_summary
+)
+
 __all__ = [
+    # Preprocessing functions
     'fit_missing_values_pipeline',
     'transform_missing_values_pipeline',
     'fit_outliers_pipeline',
@@ -42,5 +54,14 @@ __all__ = [
     'transform_categorical_encoder',
     'fit_complete_pipeline',
     'transform_complete_pipeline',
-    'print_pipeline_summary'
+    'print_pipeline_summary',
+    # Feature engineering functions
+    'create_ratio_features',
+    'create_interaction_features',
+    'create_temporal_features',
+    'create_polynomial_features',
+    'fit_aggregated_features',
+    'transform_aggregated_features',
+    'create_all_features',
+    'print_feature_summary'
 ]
