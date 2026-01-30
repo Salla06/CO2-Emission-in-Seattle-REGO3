@@ -1,0 +1,16 @@
+{
+    "model": "Gradient Boosting (RandomizedSearch)",
+    "train_r2": 0.9990232706709767,
+    "test_r2": 0.9880553962069882,
+    "train_rmse_log": 0.04156615454865909,
+    "test_rmse_log": 0.1407224826024732,
+    "train_mae_log": 0.029019886547121745,
+    "test_mae_log": 0.06787234278855343,
+    "train_rmse_original": 11.12878218945406,
+    "test_rmse_original": 43.932807922801274,
+    "train_mape": 3.0055298568542685,
+    "test_mape": 7.281736225995009,
+    "cv_r2_mean": 0.9925657824916689,
+    "cv_r2_std": 0.0023670699027773905,
+    "overfitting_r2": 0.010967874463988503
+}

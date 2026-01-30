@@ -1,0 +1,16 @@
+{
+    "model": "Random Forest (RandomizedSearch)",
+    "train_r2": 0.9980856468958136,
+    "test_r2": 0.9839276147618851,
+    "train_rmse_log": 0.05819206342470589,
+    "test_rmse_log": 0.16323669030595755,
+    "train_mae_log": 0.024913931052265293,
+    "test_mae_log": 0.07192190459920031,
+    "train_rmse_original": 16.595272221314573,
+    "test_rmse_original": 50.42336496278,
+    "train_mape": 2.478261533991248,
+    "test_mape": 7.4870852670239945,
+    "cv_r2_mean": 0.9872068267148499,
+    "cv_r2_std": 0.003589596815042531,
+    "overfitting_r2": 0.014158032133928522
+}

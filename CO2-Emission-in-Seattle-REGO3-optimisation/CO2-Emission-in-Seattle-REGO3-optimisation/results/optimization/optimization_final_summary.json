@@ -1,0 +1,16 @@
+{
+    "date_optimization": "2026-01-30T17:35:10.138511",
+    "best_model": "M2 - GB (RandomSearch)",
+    "best_r2": 0.9880553962069882,
+    "best_rmse_original": 43.932807922801274,
+    "best_mape": 7.281736225995009,
+    "models_compared": 5,
+    "optimization_methods": [
+        "GridSearchCV",
+        "RandomizedSearchCV"
+    ],
+    "datasets": [
+        "Mod\u00e8le 1 (Sans ENERGY STAR)",
+        "Mod\u00e8le 2 (Avec ENERGY STAR)"
+    ]
+}

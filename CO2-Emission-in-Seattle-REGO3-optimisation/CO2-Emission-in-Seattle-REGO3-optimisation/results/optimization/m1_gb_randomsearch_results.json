@@ -1,0 +1,33 @@
+{
+    "method": "RandomizedSearchCV",
+    "model": "Gradient Boosting",
+    "dataset": "Mod\u00e8le 1 (Sans ENERGY STAR)",
+    "best_params": {
+        "model__subsample": 0.6,
+        "model__n_estimators": 200,
+        "model__min_samples_split": 10,
+        "model__min_samples_leaf": 2,
+        "model__max_features": null,
+        "model__max_depth": 4,
+        "model__learning_rate": 0.05
+    },
+    "cv_score": 0.992833319781227,
+    "metrics": {
+        "model": "Gradient Boosting (RandomizedSearch)",
+        "train_r2": 0.9988927974064813,
+        "test_r2": 0.9869753394753772,
+        "train_rmse_log": 0.04425540105873891,
+        "test_rmse_log": 0.14694703252778793,
+        "train_mae_log": 0.030852244239435403,
+        "test_mae_log": 0.07024393640997668,
+        "train_rmse_original": 11.590263792637773,
+        "test_rmse_original": 45.49918025804735,
+        "train_mape": 3.1972633438820197,
+        "test_mape": 7.528457521496593,
+        "cv_r2_mean": 0.992833319781227,
+        "cv_r2_std": 0.0019219037819095293,
+        "overfitting_r2": 0.011917457931104103
+    },
+    "optimization_time_minutes": 1.9522952119509378,
+    "n_iterations": 80
+}

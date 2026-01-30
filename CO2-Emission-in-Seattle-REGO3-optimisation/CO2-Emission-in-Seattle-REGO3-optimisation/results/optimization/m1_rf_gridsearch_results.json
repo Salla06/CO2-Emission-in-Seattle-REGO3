@@ -1,0 +1,31 @@
+{
+    "method": "GridSearchCV",
+    "model": "Random Forest",
+    "dataset": "Mod\u00e8le 1 (Sans ENERGY STAR)",
+    "best_params": {
+        "model__max_depth": 10,
+        "model__max_features": null,
+        "model__min_samples_leaf": 1,
+        "model__min_samples_split": 2,
+        "model__n_estimators": 100
+    },
+    "cv_score": 0.9873221791289838,
+    "metrics": {
+        "model": "Random Forest (GridSearch)",
+        "train_r2": 0.9984440921082125,
+        "test_r2": 0.9840235697784803,
+        "train_rmse_log": 0.05246197974625967,
+        "test_rmse_log": 0.16274868471633352,
+        "train_mae_log": 0.025708348278940717,
+        "test_mae_log": 0.0736069576569797,
+        "train_rmse_original": 14.497795061578433,
+        "test_rmse_original": 49.93753604485918,
+        "train_mape": 2.599791541419407,
+        "test_mape": 7.696274991367622,
+        "cv_r2_mean": 0.9873221791289838,
+        "cv_r2_std": 0.0034656828033589305,
+        "overfitting_r2": 0.014420522329732233
+    },
+    "optimization_time_minutes": 3.0096355120340985,
+    "n_combinations": 48.0
+}
