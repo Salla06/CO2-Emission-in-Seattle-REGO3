@@ -9,3 +9,4 @@ fpdf
 scipy
 xgboost
 openpyxl
+fpdf
