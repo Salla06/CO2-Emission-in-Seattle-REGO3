@@ -697,6 +697,7 @@ def layout_benchmark(lang):
     [State("stored-building-features", "data"), State("current-prediction", "data"), State("baseline-prediction", "data")]
 )
 def update_benchmark_page(lang, pathname, stored_data, last_pred, baseline_val):
+    if pathname != "/2050": return dash.no_update
     lang = lang or 'FR'
     t = TRANSLATIONS[lang]
     
