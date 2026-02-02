@@ -42,7 +42,6 @@ def get_sidebar_content(lang):
             html.H2("Seattle Dashboard", className="d-inline", style={"color": "#00fa9a", "fontSize": "1.5rem"})
         ], className="text-center mb-3", style={"marginTop": "60px"}),
         html.P(t['subtitle'], className="text-muted small text-center mb-4"),
-        html.Div(style={"height": "60px"}), # Espace pour le bouton MENU flottant
         html.Hr(),
         dbc.Nav(
             [
