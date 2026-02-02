@@ -215,7 +215,8 @@ def layout_insights(lang, theme='dark'):
                     html.Div([
                          dcc.Dropdown(
                             id="map-filter-nbh",
-                            options=[{'label': n, 'value': n} for n in sorted(df['Neighborhood'].dropna().unique())],
+                            # Utiliser NEIGHBORHOOD_STATS pour garantir la cohérence avec la carte
+                            options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())],
                             multi=True,
                             placeholder="Choisir quartiers...",
                             style={'width': '300px', 'color': 'black'}
@@ -266,16 +267,28 @@ def _layout_predict_impl(lang):
                     html.H4("Caractéristiques" if lang=='FR' else "Detailed Features", className="mb-4"),
                     
                     html.Label(t['input_type']),
-                    dcc.Dropdown(id="in-type", options=[{'label': b, 'value': b} for b in BUILDING_TYPES], value='Office', className="mb-3", style={'color': '#333'}),
+                    dcc.Dropdown(
+                        id="in-type", 
+                        options=[{'label': b, 'value': b} for b in BUILDING_TYPES], 
+                        value='Office', 
+                        className="mb-3",
+                        style={'backgroundColor': '#0f172a', 'color': '#ffd700', 'fontWeight': 'bold'}
+                    ),
 
                     html.Label(t['input_nbh']),
-                    dcc.Dropdown(id="in-nbh", options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())], value='Downtown', className="mb-3", style={'color': '#333'}),
+                    dcc.Dropdown(
+                        id="in-nbh", 
+                        options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())], 
+                        value='Downtown', 
+                        className="mb-3",
+                        style={'backgroundColor': '#0f172a', 'color': '#ffd700', 'fontWeight': 'bold'}
+                    ),
                     
                     html.Label(t['input_sqft']),
-                    dcc.Input(id="in-surface", type="number", value=50000, className="form-control mb-3"),
+                    dcc.Input(id="in-surface", type="number", value=50000, className="form-control mb-3", style={"backgroundColor": "#0f172a", "color": "#ffd700", "fontWeight": "bold", "borderColor": "#334155"}),
 
                     html.Label(t['input_floors']),
-                    dcc.Input(id="in-floors", type="number", value=1, min=1, className="form-control mb-3"),
+                    dcc.Input(id="in-floors", type="number", value=1, min=1, className="form-control mb-3", style={"backgroundColor": "#0f172a", "color": "#ffd700", "fontWeight": "bold", "borderColor": "#334155"}),
                     
                     html.Label(t['input_year']),
                     dcc.Slider(id="in-year", min=1900, max=2023, step=1, value=1980, marks={i: str(i) for i in range(1900, 2030, 20)}, className="mb-2"),
@@ -285,7 +298,7 @@ def _layout_predict_impl(lang):
                         html.Label(t['input_es']),
                         dbc.Button("💡 Suggérer" if lang=='FR' else "💡 Suggest", id="btn-smart-es", color="link", size="sm", className="p-0 ms-2", style={"textDecoration": "none", "fontSize": "0.8rem"})
                     ], className="d-flex align-items-center mb-1"),
-                    dcc.Input(id="in-es", type="number", value=60, min=0, max=100, className="form-control mb-1"),
+                    dcc.Input(id="in-es", type="number", value=60, min=0, max=100, className="form-control mb-1", style={"backgroundColor": "#0f172a", "color": "#ffd700", "fontWeight": "bold", "borderColor": "#334155"}),
                     html.Div(id="smart-es-note", className="small text-muted mb-3"),
                     html.Div(id="es-error-msg", className="text-danger small fw-bold mb-2"),
 
@@ -301,7 +314,7 @@ def _layout_predict_impl(lang):
                         className="mb-4"
                     ),
 
-                    dbc.Button(t['btn_predict'], id="btn-predict", color="primary", className="w-100", style={"backgroundColor": "#00fa9a", "borderColor": "#00fa9a", "color": "#000", "fontWeight": "bold"}),
+                    dbc.Button(t['btn_predict'], id="btn-predict", color="primary", className="w-100", style={"backgroundColor": "#1e293b", "borderColor": "#00fa9a", "borderWidth": "2px", "color": "#00fa9a", "fontWeight": "bold", "fontSize": "1.1rem"}),
                 ], className="glass-card mb-4")
             ], width=5),
             
@@ -312,7 +325,14 @@ def _layout_predict_impl(lang):
                         html.H2(t['res_predicted'], className="text-secondary mb-0"),
                         html.Div(id="reliability-badge-container")
                     ], className="d-flex justify-content-between align-items-center mb-0"),
-                    html.H1(id="prediction-output", className="display-1 mb-0", style={"color": "#00fa9a", "fontWeight": "bold", "textShadow": "0 0 20px rgba(0,250,154,0.3)"}),
+                    dcc.Loading(
+                        id="loading-prediction",
+                        type="circle",
+                        color="#00fa9a",
+                        children=[
+                            html.H1(id="prediction-output", className="display-1 mb-0", style={"color": "#00fa9a", "fontWeight": "bold", "textShadow": "0 0 20px rgba(0,250,154,0.3)"})
+                        ]
+                    ),
                     html.P(t['tonnes_co2_year'], className="text-muted"),
                     
                     html.Hr(),
@@ -340,7 +360,8 @@ def _layout_predict_impl(lang):
                         id='upload-data',
                         children=html.Div(['Déposez un fichier ou ', html.A('cliquez ici')]),
                         style={'width': '100%', 'height': '60px', 'lineHeight': '60px', 'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px', 'textAlign': 'center'},
-                        multiple=False
+                        multiple=False,
+                        max_size=5_000_000  # 5 MB maximum
                     ),
                     html.Div([
                         dbc.Button("🗑️ Effacer", id="btn-clear-batch", color="danger", size="sm", className="mt-2", style={"display": "none"})
@@ -415,44 +436,44 @@ def layout_analysis(lang):
     sections = [
         {
             "id": "missing",
-            "title": "🔍 Audit des Données Manquantes",
-            "desc": "Analyse du taux de complétude des variables avant nettoyage.",
+            "title": t['eda_title_missing'],
+            "desc": t['eda_desc_missing'],
             "images": [{"src": "/assets/eda_figures/auto_missing_values.png", "title": "Bilan des valeurs manquantes", "width": 12}]
         },
         {
             "id": "target_before",
-            "title": "📉 Distribution de la Cible (Brute)",
-            "desc": "Distribution initiale des émissions de CO2 mettant en évidence les valeurs extrêmes.",
+            "title": t['eda_title_dist_raw'],
+            "desc": t['eda_desc_dist_raw'],
             "images": [{"src": "/assets/eda_figures/01_target_original_distribution.png", "title": "Distribution GHG Emissions", "width": 12}]
         },
         {
             "id": "target_log",
-            "title": "📈 Distribution de la Cible (Log)",
-            "desc": "Impact de la transformation logarithmique pour normaliser la distribution.",
+            "title": t['eda_title_dist_log'],
+            "desc": t['eda_desc_dist_log'],
             "images": [{"src": "/assets/eda_figures/02_target_log_distribution.png", "title": "Distribution Log(CO2)", "width": 12}]
         },
         {
             "id": "buildings",
-            "title": "🏢 Caractéristiques Structurelles",
-            "desc": "Répartition des bâtiments par type d'usage principal.",
+            "title": t['eda_title_struct'],
+            "desc": t['eda_desc_struct'],
             "images": [{"src": "/assets/eda_figures/auto_BuildingType_distribution.png", "title": "Distribution par Type d'Usage", "width": 12}]
         },
         {
             "id": "neighborhoods",
-            "title": "🏘️ Répartition Géographique",
-            "desc": "Nombre de bâtiments référencés par quartier.",
+            "title": t['eda_title_geo'],
+            "desc": t['eda_desc_geo'],
             "images": [{"src": "/assets/eda_figures/auto_Neighborhood_distribution.png", "title": "Distribution par Quartier", "width": 12}]
         },
         {
             "id": "surface",
-            "title": "📐 Analyse des Surfaces",
-            "desc": "Distribution de la surface totale au sol (GFA).",
+            "title": t['eda_title_surf'],
+            "desc": t['eda_desc_surf'],
             "images": [{"src": "/assets/eda_figures/auto_PropertyGFATotal_distribution.png", "title": "Distribution de la Surface", "width": 12}]
         },
         {
             "id": "energy_star",
-            "title": "⭐ Impact Energy Star",
-            "desc": "Relation entre le score Energy Star et les émissions de gaz à effet de serre.",
+            "title": t['eda_title_es'],
+            "desc": t['eda_desc_es'],
             "images": [{"src": "/assets/eda_figures/energy_star_correlation.png", "title": "Corrélation CO2 vs Energy Star Score", "width": 12}]
         }
     ]
@@ -474,7 +495,7 @@ def layout_analysis(lang):
             text_auto=".2f", 
             color_continuous_scale='RdBu_r', 
             aspect="auto",
-            title="Matrice de Corrélation (Variables Clés)"
+            title=t['eda_corr_title']
         )
         fig_corr.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
 
@@ -482,7 +503,7 @@ def layout_analysis(lang):
         html.H1([html.I(className="fas fa-search me-3"), t['nav_analysis']], className="mb-4"),
         
         # --- SECTION 1: RAPPORT STATIQUE (Notebook Reflet) ---
-        html.H3("1. Audit Initial (Notebook EDA)", className="mt-5 mb-3 text-info"),
+        # html.H3("1. Audit Initial (Notebook EDA)", className="mt-5 mb-3 text-info"), # SUPPRIMÉ
         html.Hr(style={"borderColor": "rgba(255,255,255,0.1)"}),
         build_gallery_ui(None, sections, lang),
         
@@ -575,9 +596,26 @@ def load_full_data():
             
         df_train = pd.read_csv(TRAIN_DATA_PATH)
         df_test = pd.read_csv(TEST_DATA_PATH)
+        
+        # Concaténation propre
         df = pd.concat([df_train, df_test], axis=0, ignore_index=True)
-        # Remove duplicate columns if any
+        
+        # Nettoyage des colonnes dupliquées immédiatement
         df = df.loc[:, ~df.columns.duplicated()]
+        
+        # Nettoyage de la colonne Neighborhood pour éviter les doublons dans le filtre
+        if 'Neighborhood' in df.columns:
+            # Standardisation : Title Case et suppression des espaces
+            df['Neighborhood'] = df['Neighborhood'].astype(str).str.strip().str.title()
+            
+            # Correction spécifique pour uniformiser avec NEIGHBORHOOD_STATS
+            # Par exemple 'DELRIDGE NEIGHBORHOODS' -> 'Delridge'
+            replace_map = {
+                'Delridge Neighborhoods': 'Delridge',
+                'Magnolia / Queen Anne': 'Magnolia / Queen Anne' # Garder tel quel
+            }
+            df['Neighborhood'] = df['Neighborhood'].replace(replace_map)
+            
         return df
     except Exception as e:
         print(f"Erreur chargement données EDA: {e}")
@@ -690,42 +728,50 @@ def _layout_modeling_impl(lang):
 
     # --- 3. RADAR CHART COMPARATIF (M1 vs M2) ---
     # On prend le meilleur de M1 et le meilleur de M2 pour le radar
+    # Si non trouvé explicitement par nom, on prend les deux premiers du classement
     m1_best = next((m for m in models_data if "M1" in m.get("Modèle", "")), None)
     m2_best = next((m for m in models_data if "M2" in m.get("Modèle", "")), None)
+    
+    if not m1_best and len(models_data) > 1: m1_best = models_data[1]
+    if not m2_best and len(models_data) > 0: m2_best = models_data[0]
     
     fig_radar = go.Figure()
     
     if m1_best and m2_best:
         categories = [t['mod_radar_precision'], t['mod_radar_stability'], t['mod_radar_generalization']]
         
-        # Normalisation simple pour le radar (tout ramener vers 1)
-        # R2 est déjà < 1. MAPE doit être inversé (plus petit est mieux)
-        
         def safe_get(d, k): return float(d.get(k, 0))
         
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[safe_get(m1_best, 'R² Test'), 1 - safe_get(m1_best, 'MAPE'), safe_get(m1_best, 'CV R² Mean')],
-            theta=categories,
-            fill='toself',
-            name=m1_best['Modèle']
-        ))
-        
+        # 1. Trace M2 (Meilleur modèle -> Grand triangle -> En arrière plan)
         fig_radar.add_trace(go.Scatterpolar(
             r=[safe_get(m2_best, 'R² Test'), 1 - safe_get(m2_best, 'MAPE'), safe_get(m2_best, 'CV R² Mean')],
             theta=categories,
             fill='toself',
+            fillcolor='rgba(0, 250, 154, 0.2)',
+            line=dict(color='#00fa9a'),
             name=m2_best['Modèle']
+        ))
+        
+        # 2. Trace M1 (Modèle de base -> Petit triangle -> Au premier plan)
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[safe_get(m1_best, 'R² Test'), 1 - safe_get(m1_best, 'MAPE'), safe_get(m1_best, 'CV R² Mean')],
+            theta=categories,
+            fill='toself',
+            fillcolor='rgba(255, 99, 132, 0.2)',
+            line=dict(color='rgba(255, 99, 132, 1)'),
+            name=m1_best['Modèle']
         ))
 
         fig_radar.update_layout(
             polar=dict(
-                radialaxis=dict(visible=True, range=[0, 1])
+                radialaxis=dict(visible=True, range=[0.5, 1], gridcolor="#444"),  # Zoom pour voir les écarts
+                bgcolor='rgba(0,0,0,0)'
             ),
             showlegend=True,
             template="plotly_dark",
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            title=t['mod_radar_chart_title']
+            title=dict(text=t['mod_radar_chart_title'], x=0.5)
         )
     
     
@@ -825,11 +871,11 @@ def layout_sim(lang):
     t = TRANSLATIONS[lang]
     
     sim_options = [
-        {'label': "✨ Relampage LED (Score +8)", 'value': 'led', 'disabled': False},
-        {'label': "🌡️ Pompe à Chaleur (Score +15)", 'value': 'hvac', 'disabled': False},
-        {'label': "🪟 Isolation Fenêtres (Score +10)", 'value': 'windows', 'disabled': False},
-        {'label': "☀️ Panneaux Solaires (Score +12)", 'value': 'solar', 'disabled': False},
-        {'label': "📉 Gestion Technique GTB (Score +5)", 'value': 'gtb', 'disabled': False}
+        {'label': t['sim_opt_led'], 'value': 'led', 'disabled': False},
+        {'label': t['sim_opt_hvac'], 'value': 'hvac', 'disabled': False},
+        {'label': t['sim_opt_windows'], 'value': 'windows', 'disabled': False},
+        {'label': t['sim_opt_solar'], 'value': 'solar', 'disabled': False},
+        {'label': t['sim_opt_gtb'], 'value': 'gtb', 'disabled': False}
     ]
 
     return html.Div([
@@ -838,7 +884,13 @@ def layout_sim(lang):
             dbc.Col([
                 dbc.Card([
                     html.H4(t['sim_renov_menu']),
-                    html.P(t['sim_select_upgrades'], className="text-muted"),
+                    html.P(t['sim_select_upgrades'], className="text-muted mb-2"),
+                    dbc.Alert([
+                        html.H6(t['sim_es_explain_title'], className="alert-heading small fw-bold"),
+                        html.P(t['sim_es_explain_1'], className="small mb-1"),
+                        html.P(t['sim_es_explain_2'], className="small mb-1"),
+                        html.Small(t['sim_es_source'], className="d-block mt-1 fst-italic", style={"color": "white"})
+                    ], color="info", className="p-2 mb-3", style={"fontSize": "0.85rem", "backgroundColor": "rgba(13, 202, 240, 0.1)", "borderColor": "rgba(13, 202, 240, 0.2)"}),
                     html.Hr(),
                     dbc.Checklist(
                         options=sim_options,
@@ -1018,40 +1070,8 @@ def update_star_page(lang, pathname, features, prediction):
     
     # Stars Logic (Inverse: Lower ratio is better)
     stars = 5 if ratio < 0.6 else 4 if ratio < 0.8 else 3 if ratio < 1.0 else 2 if ratio < 1.3 else 1
-    
-    star_icons = []
-    for i in range(5):
-        color = "#ffd700" if i < stars else "#4b5563"
-        star_icons.append(html.I(className="fas fa-star fa-2x mx-1", style={"color": color}))
-    
-    # Gauge Chart
-    fig_gauge = go.Figure(go.Indicator(
-        mode = "gauge+number+delta",
-        value = current_val,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "Émissions vs Médiane", 'font': {'color': 'white'}},
-        delta = {'reference': median_emissions, 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#00fa9a"}},
-        gauge = {
-            'axis': {'range': [0, median_emissions * 2], 'tickwidth': 1, 'tickcolor': "white"},
-            'bar': {'color': "#3b82f6"},
-            'bgcolor': "rgba(0,0,0,0)",
-            'borderwidth': 2,
-            'bordercolor': "gray",
-            'steps': [
-                {'range': [0, median_emissions * 0.6], 'color': 'rgba(0, 250, 154, 0.3)'},  # Green Zone (5 stars)
-                {'range': [median_emissions * 0.6, median_emissions], 'color': 'rgba(255, 215, 0, 0.3)'}, # Yellow Zone
-                {'range': [median_emissions, median_emissions * 2], 'color': 'rgba(239, 68, 68, 0.3)'}   # Red Zone
-            ],
-            'threshold': {
-                'line': {'color': "white", 'width': 4},
-                'thickness': 0.75,
-                'value': median_emissions
-            }
-        }
-    ))
-    fig_gauge.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', font={'color': "white"})
 
-    # Advice
+    # Advice Logic
     next_level_target = 0
     if stars < 5:
         target_ratios = {1: 1.3, 2: 1.0, 3: 0.8, 4: 0.6}
@@ -1061,32 +1081,144 @@ def update_star_page(lang, pathname, features, prediction):
         advice_text = f"🎯 {t['star_advice_next']} : {t['star_reduce_by']} {reduction_needed:.1f} T {t['star_to_gain_star']}"
     else:
         advice_text = t['star_leader_msg']
+    
+    # Leaderboard Chart (Podium)
+    top_perf = median_emissions * 0.6
+    
+    fig_leaderboard = go.Figure()
+    
+    # Barre Moyenne (Référence)
+    fig_leaderboard.add_trace(go.Bar(
+        y=[t['star_label_avg']], x=[median_emissions], orientation='h', 
+        marker_color='#94a3b8', name='Moyenne Seattle', text=f"{median_emissions:.1f} T", textposition='auto'
+    ))
+    
+    # Barre Vous (Couleur selon performance)
+    my_color = '#00fa9a' if current_val <= top_perf else '#ffd700' if current_val <= median_emissions else '#ef4444'
+    fig_leaderboard.add_trace(go.Bar(
+        y=[t['star_label_us']], x=[current_val], orientation='h', 
+        marker_color=my_color, name='Votre Bâtiment', text=f"{current_val:.1f} T", textposition='auto'
+    ))
+    
+    # Barre Top 10% (Objectif)
+    fig_leaderboard.add_trace(go.Bar(
+        y=[t['star_label_target']], x=[top_perf], orientation='h', 
+        marker_color='#00fa9a', name='Objectif', text=f"{top_perf:.1f} T", textposition='auto'
+    ))
+    
+    fig_leaderboard.update_layout(
+        title=t['star_chart_pos_title'],
+        template="plotly_dark", 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)',
+        barmode='group',
+        xaxis_title="CO2 (Tonnes/an)",
+        margin=dict(l=80, r=20, t=40, b=40),
+        height=300,
+        showlegend=False
+    )
 
+    # Gauge Chart (Compteur Néon Modernisé)
+    bar_color = "#00fa9a" if current_val <= median_emissions * 1.1 else "#ef4444"
+    
+    fig_gauge = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = current_val,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': t['star_gauge_title_full'], 'font': {'size': 16, 'color': '#cbd5e1'}},
+        
+        # Le Delta montre l'écart relatif en %
+        delta = {
+            'reference': median_emissions, 
+            'relative': True, # Afficher en pourcentage 
+            'position': "bottom",
+            'valueformat': ".1%", 
+            'increasing': {'color': "#ef4444", 'symbol': '▲ '}, # Plus d'émissions = Rouge (Mauvais)
+            'decreasing': {'color': "#00fa9a", 'symbol': '▼ '}  # Moins d'émissions = Vert (Bon)
+        },
+        
+        number = {'suffix': " T", 'font': {'size': 36, 'color': 'white', 'family': 'Arial Black'}},
+        
+        gauge = {
+            'axis': {'range': [0, max(median_emissions * 1.8, current_val * 1.2)], 'tickwidth': 0, 'tickfont': {'color': '#64748b'}},
+            'bar': {'color': bar_color, 'thickness': 0.8}, # Barre principale
+            'bgcolor': "rgba(0,0,0,0)",
+            'borderwidth': 0,
+            'steps': [
+                {'range': [0, median_emissions], 'color': "rgba(30, 41, 59, 0.5)"}, # Fond sombre
+                {'range': [median_emissions, max(median_emissions * 1.8, current_val * 1.2)], 'color': "rgba(30, 41, 59, 0.5)"} 
+            ],
+            'threshold': {
+                'line': {'color': "white", 'width': 4},
+                'thickness': 0.9,
+                'value': median_emissions
+            }
+        }
+    ))
+    fig_gauge.update_layout(
+        template="plotly_dark", 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        font={'color': "white"},
+        margin=dict(l=40, r=40, t=20, b=50),
+        # Légende explicative (Annotations)
+        annotations=[
+            dict(
+                x=0.5, y=-0.15, xref='paper', yref='paper',
+                text=t.get('star_gauge_legend_annot', "Vert = Meilleur.<br>Rouge = Moins bon."), # Fallback si clé manque
+                showarrow=False,
+                font=dict(size=12, color="#94a3b8")
+            )
+        ]
+    )
     return html.Div([
         html.H1([html.I(className="fas fa-star me-3"), t['nav_star']], className="mb-4 text-center gradient-text"),
         
         dbc.Row([
+            # 1. Podium (Pleine largeur)
             dbc.Col([
                 dbc.Card([
-                    html.H5(t['star_rank_title']),
-                    html.Div(star_icons, className="text-center my-4"),
-                    html.H2(f"{stars}/5 {t['stars']}", className="text-center mb-3", style={"color": "#ffd700"}),
+                    html.H5(t['star_podium_title']),
+                    dcc.Graph(figure=fig_leaderboard, style={"height": "350px"}), # Hauteur augmentée
+                    html.H2(f"{stars}/5 {t['stars']}", className="text-center mb-1", style={"color": "#ffd700"}),
                     html.P([
                         t['star_building_emits'], " ", 
                         html.Strong(f"{current_val:.1f} T"), 
                         " ", t['star_per_year']
                     ], className="text-center"),
-                    dbc.Alert(advice_text, color="info" if stars < 5 else "success", className="mt-3")
-                ], className="glass-card p-4 h-100")
-            ], width=5),
+                    dbc.Alert(advice_text, color="info" if stars < 5 else "success", className="mt-3"),
+                    
+                    html.Div([
+                        dbc.Accordion([
+                            dbc.AccordionItem([
+                                html.Ul([
+                                    html.Li("⭐⭐⭐⭐⭐ : Émissions < 60% de la moyenne (Excellent)"),
+                                    html.Li("⭐⭐⭐⭐ : Émissions < 80% de la moyenne (Très bon)"),
+                                    html.Li("⭐⭐⭐ : Dans la moyenne (Standard)"),
+                                    html.Li("⭐⭐ : Émissions < 130% de la moyenne (Peut mieux faire)"),
+                                    html.Li("⭐ : Émissions > 130% de la moyenne (Énergivore)"),
+                                ], className="small text-muted mb-0")
+                            ], title=t['star_accordion_title'], item_id="info-stars")
+                        ], start_collapsed=True, flush=True)
+                    ], className="mt-2")
+                ], className="glass-card p-4 mb-4")
+            ], width=12),
             
+            # 2. Jauge (Pleine largeur)
             dbc.Col([
                 dbc.Card([
                     html.H5(t['star_gauge_title']),
-                    dcc.Graph(figure=fig_gauge, style={"height": "300px"}),
-                    html.P(f"{t['star_median_line']} ({median_emissions:.1f} T) {t['star_for_type']} {b_type}.", className="text-center text-muted small")
-                ], className="glass-card p-3 h-100")
-            ], width=7)
+                    dcc.Graph(figure=fig_gauge, style={"height": "400px"}),
+                    
+                    # Légende détaillée visuelle
+                    html.Div([
+                        html.Div([html.I(className="fas fa-square me-2", style={"color": bar_color}), t['star_label_us']], className="d-flex align-items-center me-4"),
+                        html.Div([html.I(className="fas fa-minus me-2 text-white", style={"fontWeight": "bold", "fontSize": "1.2em"}), t['star_gauge_avg_sector']], className="d-flex align-items-center me-4"),
+                        html.Div([html.I(className="fas fa-percentage me-2 text-info"), t['star_gauge_gap']], className="d-flex align-items-center"),
+                    ], className="d-flex justify-content-center mb-3 small"),
+                    
+                    html.P(t['star_gauge_legend_desc'].format(b_type, median_emissions), className="text-center text-muted small fst-italic")
+                ], className="glass-card p-4")
+            ], width=12)
         ])
     ])
 
@@ -1147,24 +1279,46 @@ def update_benchmark_page(lang, pathname, stored_data, last_pred, baseline_val):
     fig = go.Figure()
     
     # Zone de Risque (Entre BAU et Target)
+    # Zone de Risque
     fig.add_trace(go.Scatter(
         x=years, y=bau_path, mode='lines', 
-        name=t['2050_bau'], line=dict(color='#ef4444', width=2, dash='dot')
+        name=t['2050_scen_current'], 
+        line=dict(color='#ef4444', width=2, dash='dot')
     ))
     fig.add_trace(go.Scatter(
         x=years, y=reg_path, mode='lines+markers', 
-        name=t['2050_target_reg'], line=dict(color='#00fa9a', width=3),
-        fill='tonexty', fillcolor='rgba(239, 68, 68, 0.2)' # Fill to previous trace (BAU)
+        name=t['2050_scen_target'], 
+        line=dict(color='#00fa9a', width=3),
+        fill='tonexty', fillcolor='rgba(239, 68, 68, 0.2)' 
     ))
     
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)', 
         plot_bgcolor='rgba(0,0,0,0)',
-        title=t['2050_traj_title'],
+        title=dict(text=t['2050_chart_title'], font=dict(size=18, color="white")),
         xaxis_title=t['2050_year'],
         yaxis_title=t['2050_emissions'],
-        legend=dict(orientation="h", y=1.1)
+        legend=dict(orientation="h", y=1.1),
+        margin=dict(l=20, r=20, t=50, b=20),
+        # Annotations explicatives
+        annotations=[
+            dict(
+                x=2040, y=(targets[2040] + bau_path[2])/2,
+                text=t['2050_annot_effort'],
+                showarrow=False,
+                font=dict(color="#f87171", size=11)
+            ),
+            dict(
+                x=2050, y=0,
+                xref="x", yref="y",
+                text=t['2050_annot_zero'],
+                showarrow=True,
+                arrowhead=1,
+                ax=0, ay=-30,
+                font=dict(color="#00fa9a", weight="bold")
+            )
+        ]
     )
 
     return html.Div([
@@ -1186,7 +1340,8 @@ def update_benchmark_page(lang, pathname, stored_data, last_pred, baseline_val):
                 dbc.Card([
                     html.H5(t['2050_traj_title']),
                     html.P(t['2050_red_zone_desc'], className="text-muted small"),
-                    dcc.Graph(figure=fig, style={"height": "350px"})
+                    dcc.Graph(figure=fig, style={"height": "350px"}),
+                    html.Small(t['2050_source'], className="text-muted d-block text-end mt-2 fst-italic")
                 ], className="glass-card p-3 h-100")
             ], width=8),
         ])
@@ -1231,6 +1386,40 @@ def update_prediction(n_clicks, b_type, nbh, surface, floors, year, es, energy_s
         return "", "", "", go.Figure().update_layout(template="plotly_dark"), dash.no_update, dash.no_update, dash.no_update
     
     lang = lang or 'FR'
+    
+    # === VALIDATION DES INPUTS ===
+    errors = []
+    
+    # Validation Surface
+    if surface is None or surface <= 0:
+        errors.append("La surface doit être supérieure à 0" if lang == 'FR' else "Surface must be greater than 0")
+    elif surface > 10_000_000:  # 10M sqft = limite réaliste
+        errors.append("Surface trop grande (max 10M sqft)" if lang == 'FR' else "Surface too large (max 10M sqft)")
+    
+    # Validation Étages
+    if floors is None or floors < 1:
+        errors.append("Le nombre d'étages doit être au moins 1" if lang == 'FR' else "Number of floors must be at least 1")
+    elif floors > 200:  # Limite réaliste
+        errors.append("Nombre d'étages trop élevé (max 200)" if lang == 'FR' else "Too many floors (max 200)")
+    
+    # Validation Année
+    if year is None or year < 1800:
+        errors.append("Année de construction invalide (min 1800)" if lang == 'FR' else "Invalid year (min 1800)")
+    elif year > 2026:
+        errors.append("Année de construction ne peut pas être dans le futur" if lang == 'FR' else "Year cannot be in the future")
+    
+    # Validation Energy Star
+    if es is not None and (es < 0 or es > 100):
+        errors.append("Score Energy Star doit être entre 0 et 100" if lang == 'FR' else "Energy Star score must be between 0 and 100")
+    
+    # Si erreurs, retourner message d'erreur
+    if errors:
+        error_msg = html.Div([
+            html.H4("⚠️ Erreurs de Validation" if lang == 'FR' else "⚠️ Validation Errors", className="text-danger"),
+            html.Ul([html.Li(e, className="text-warning") for e in errors])
+        ])
+        return error_msg, "", "", go.Figure().update_layout(template="plotly_dark"), dash.no_update, dash.no_update, dash.no_update
+    
     es_val = float(es) if es is not None else 60
     
     # Localisation dynamique basée sur le quartier
@@ -1258,8 +1447,22 @@ def update_prediction(n_clicks, b_type, nbh, surface, floors, year, es, energy_s
     fig_xai = go.Figure(go.Bar(
         x=df_xai['impact'], y=df_xai['feature'], orientation='h', marker_color=df_xai['color']
     ))
-    fig_xai.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                          margin=dict(l=0, r=20, t=30, b=20), yaxis=dict(autorange="reversed"))
+    fig_xai.update_layout(
+        template="plotly_dark", 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)', 
+        margin=dict(l=0, r=20, t=30, b=40), 
+        yaxis=dict(autorange="reversed"),
+        # Ajout Légende via Annotations
+        annotations=[
+            dict(
+                x=0, y=1.1, xref='paper', yref='paper',
+                text="<span style='color:#ff4d4d'>■ Augmente</span> / <span style='color:#00fa9a'>■ Réduit</span> les émissions",
+                showarrow=False,
+                font=dict(size=12)
+            )
+        ]
+    )
     
     # Badge de fiabilité dynamique
     rel = get_reliability_info(val, features) 
@@ -1341,11 +1544,26 @@ def update_output(contents, n_clicks, filename, lang):
         max_co2 = df['CO2_Emissions_Predicted'].max()
         
         # Graphs
-        fig_hist = px.histogram(df, x='CO2_Emissions_Predicted', nbins=20, title="Distribution des Émissions", template="plotly_dark", color_discrete_sequence=['#00fa9a'])
-        fig_hist.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        # Graphs
+        # 1. Distribution des Émissions (Histogramme amélioré avec marginal)
+        fig_hist = px.histogram(
+            df, x='CO2_Emissions_Predicted', nbins=30, 
+            title="Distribution des Émissions", 
+            template="plotly_dark", 
+            color_discrete_sequence=['#00fa9a'],
+            marginal="box", # Ajoute boîte à moustaches au dessus
+            opacity=0.8
+        )
+        fig_hist.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Émissions CO2 (Tonnes)", yaxis_title="Nombre de Bâtiments")
 
-        fig_box = px.box(df, x='PrimaryPropertyType', y='CO2_Emissions_Predicted', title="Émissions par Type d'Usage", template="plotly_dark", color_discrete_sequence=['#3b82f6'])
-        fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        # 2. Émissions par Type (Histogramme/Barres)
+        fig_box = px.histogram(
+            df, x='PrimaryPropertyType', y='CO2_Emissions_Predicted', histfunc='sum',
+            title="Total Émissions par Type d'Usage", 
+            template="plotly_dark", 
+            color='PrimaryPropertyType' # Couleurs variées par type
+        )
+        fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Type d'Usage", yaxis_title="Total CO2 (Tonnes)")
         
         fig_scatter = px.scatter(df, x='PropertyGFATotal', y='CO2_Emissions_Predicted', color='PrimaryPropertyType', title="Corrélation Surface vs CO2", template="plotly_dark")
         fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -1397,11 +1615,17 @@ def update_output(contents, n_clicks, filename, lang):
                 page_size=5
             ),
             
-            html.H5("Analyse Visuelle du Portefeuille", className="mt-4 mb-3"),
+            html.H5("Analyse Visuelle du Portefeuille", className="mt-5 mb-4"),
+            
+            # Graph 1 : Distribution (Pleine largeur)
             dbc.Row([
-                dbc.Col(dcc.Graph(figure=fig_hist, style={"height": "300px"}), width=6),
-                dbc.Col(dcc.Graph(figure=fig_box, style={"height": "300px"}), width=6),
-            ]),
+                dbc.Col(dcc.Graph(figure=fig_hist, style={"height": "450px"}), width=12)
+            ], className="mb-5"),
+            
+            # Graph 2 : Par Type (Pleine largeur)
+            dbc.Row([
+                dbc.Col(dcc.Graph(figure=fig_box, style={"height": "450px"}), width=12)
+            ], className="mb-5"),
             dbc.Row([
                 dbc.Col(dcc.Graph(figure=fig_scatter, style={"height": "400px"}), width=12),
             ], className="mt-4"),

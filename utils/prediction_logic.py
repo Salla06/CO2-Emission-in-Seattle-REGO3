@@ -3,14 +3,17 @@ import joblib
 import pandas as pd
 import numpy as np
 import json
-from .constants import MODEL_PATH, BUILDING_TYPE_BENCHMARKS, NEIGHBORHOOD_STATS, RESULTS_DIR
+from .constants import (
+    MODEL_PATH, BUILDING_TYPE_BENCHMARKS, NEIGHBORHOOD_STATS, RESULTS_DIR,
+    CO2_CONVERSION_FACTOR, ENERGY_STAR_IMPACT_WEIGHT, ENERGY_STAR_BASE_FACTOR,
+    GAS_ESTIMATION_FACTOR, STEAM_ESTIMATION_FACTOR, ELECTRICITY_BASE_FACTOR,
+    NEIGHBORHOOD_STD_PROXY, BUILDING_TYPE_STD_PROXY, ENERGY_STAR_IMPROVEMENT_TARGET,
+    CARBON_COST_PER_TON, TARGET_2030_REDUCTION
+)
 
 class Predictor:
     def __init__(self):
-        self.model = None
-        self.feature_columns = []
-        self.is_loaded = False
-    def __init__(self):
+        """Initialise le prédicteur avec lazy loading des ressources."""
         self.model = None
         self.feature_columns = []
         self.is_loaded = False
@@ -39,7 +42,16 @@ class Predictor:
             print(f"Predictor: Erreur chargement ({e})")
 
     def _mock_predict(self, gfa, energy_star, prop_type):
-        """Fallback heuristique robuste."""
+        """Prédiction heuristique de secours si le modèle n'est pas chargé.
+        
+        Args:
+            gfa (float): Surface totale au sol (sqft)
+            energy_star (float): Score Energy Star (0-100)
+            prop_type (str): Type de bâtiment
+            
+        Returns:
+            float: Émissions de CO2 estimées (tonnes/an)
+        """
         # Base benchmark
         base_eui = BUILDING_TYPE_BENCHMARKS.get(prop_type, 150)
         
@@ -47,12 +59,29 @@ class Predictor:
         factor_es = 1.0
         if energy_star:
             # Score élevé = moins d'émissions (ex: 100 -> 0.6x, 0 -> 1.4x)
-            factor_es = 1.4 - (energy_star / 100 * 0.8)
+            factor_es = ENERGY_STAR_BASE_FACTOR - (energy_star / 100 * ENERGY_STAR_IMPACT_WEIGHT)
             
-        estimated_co2 = (gfa * base_eui * factor_es) / 1000 * 0.05 # Facteur conversion arbitraire pour TCO2
+        estimated_co2 = (gfa * base_eui * factor_es) / 1000 * CO2_CONVERSION_FACTOR
         return round(max(estimated_co2, 0.1), 2)
 
     def predict(self, input_data):
+        """Prédit les émissions de CO2 d'un bâtiment.
+        
+        Args:
+            input_data (dict): Dictionnaire contenant les caractéristiques du bâtiment:
+                - gfa (float): Surface totale
+                - building_type (str): Type de bâtiment
+                - year_built (int): Année de construction
+                - number_of_floors (int): Nombre d'étages
+                - energy_star_score (float): Score Energy Star
+                - location (dict): {'lat': float, 'lon': float}
+                - neighborhood (str): Quartier
+                - has_gas (bool): Présence de gaz naturel
+                - has_steam (bool): Présence de vapeur
+                
+        Returns:
+            float: Prédiction des émissions de CO2 (tonnes/an)
+        """
         # Lazy load logic
         if not self.is_loaded:
             self._load_resources()
@@ -89,20 +118,20 @@ class Predictor:
             # Gestion des sources d'énergie (Influence dynamique)
             has_gas = input_data.get('has_gas', False)
             has_steam = input_data.get('has_steam', False)
-            if has_gas: mappings['NaturalGas(therms)'] = (gfa * 0.1) # Estimation
-            if has_steam: mappings['SteamUse(kBtu)'] = (gfa * 0.05) # Estimation
-            mappings['Electricity(kWh)'] = (gfa * 15) # Base électricité
+            if has_gas: mappings['NaturalGas(therms)'] = (gfa * GAS_ESTIMATION_FACTOR)
+            if has_steam: mappings['SteamUse(kBtu)'] = (gfa * STEAM_ESTIMATION_FACTOR)
+            mappings['Electricity(kWh)'] = (gfa * ELECTRICITY_BASE_FACTOR)
 
             # Statistiques par Quartier / Type (Crucial pour le modèle)
             nbh = input_data.get('neighborhood', 'Downtown')
             nbh_stats = NEIGHBORHOOD_STATS.get(nbh, NEIGHBORHOOD_STATS['Downtown'])
             mappings['Neighborhood_mean'] = nbh_stats['avg_co2']
-            mappings['Neighborhood_std'] = nbh_stats['avg_co2'] * 0.4 # Proxy
+            mappings['Neighborhood_std'] = nbh_stats['avg_co2'] * NEIGHBORHOOD_STD_PROXY
             
             btype = input_data['building_type']
             type_mean = BUILDING_TYPE_BENCHMARKS.get(btype, 100)
             mappings['PrimaryPropertyType_mean'] = type_mean
-            mappings['PrimaryPropertyType_std'] = type_mean * 0.5 # Proxy
+            mappings['PrimaryPropertyType_std'] = type_mean * BUILDING_TYPE_STD_PROXY
             
             for col, val in mappings.items():
                 if col in df.columns: df[col] = val
@@ -129,7 +158,15 @@ class Predictor:
             return self._mock_predict(input_data['gfa'], input_data.get('energy_star_score'), input_data['building_type'])
 
     def explain(self, input_data):
-        """Retourne une explication dynamique des impacts basée sur les caractéristiques"""
+        """Génère une explication des facteurs d'impact sur les émissions.
+        
+        Args:
+            input_data (dict): Caractéristiques du bâtiment
+            
+        Returns:
+            list: Liste de dictionnaires {'feature': str, 'impact': float}
+                  triée par impact absolu décroissant
+        """
         gfa = float(input_data.get('gfa', 50000))
         es = float(input_data.get('energy_star_score', 60))
         year = int(input_data.get('year_built', 1980))
@@ -152,6 +189,14 @@ class Predictor:
 predictor_instance = Predictor()
 
 def predict_co2(data):
+    """Interface publique pour prédire les émissions de CO2.
+    
+    Args:
+        data (dict): Données du bâtiment (format app.py)
+        
+    Returns:
+        tuple: (prediction (float), explanation (list))
+    """
     # Adapter les clés si format app
     model_data = {
         'gfa': data.get('PropertyGFATotal', 50000),
@@ -171,7 +216,14 @@ def predict_co2(data):
     return prediction, explanation
 
 def get_smart_es_suggestion(building_type):
-    """Suggère un score cible basé sur les benchmarks de Seattle"""
+    """Suggère un score Energy Star cible basé sur les benchmarks de Seattle.
+    
+    Args:
+        building_type (str): Type de bâtiment
+        
+    Returns:
+        tuple: (score_cible (int), note_explicative (str))
+    """
     suggestions = {
         'Hospital': 78, 'Hotel': 65, 'Large Office': 82, 'Office': 75,
         'K-12 School': 85, 'University': 70, 'Warehouse': 60,
@@ -182,7 +234,13 @@ def get_smart_es_suggestion(building_type):
     return val, note
 
 def get_seattle_metrics():
-    """Retourne des métriques comparatives réelles avec/sans Energy Star (CSV Based)"""
+    """Charge les métriques de performance des modèles ML.
+    
+    Returns:
+        dict: Métriques comparées avec/sans Energy Star
+            {'with_es': {'R2': float, 'MAE': float, ...},
+             'without_es': {...}}
+    """
     try:
         path = os.path.join(RESULTS_DIR, 'metrics_comparison.json')
         if os.path.exists(path):
@@ -214,8 +272,6 @@ def get_seattle_metrics():
                 # Fallback to hardcoded if CSV structure is unexpected
     except Exception as e:
         print(f"Metrics Load Error: {e}")
-    except Exception as e:
-        print(f"Metrics Load Error: {e}")
 
     # Fallback Values
     return {
@@ -228,7 +284,14 @@ def get_seattle_metrics():
     }
 
 def clean_for_pdf(text):
-    """Supprime les emojis et caractères non-latin1 pour éviter les crashs FPDF"""
+    """Nettoie le texte pour compatibilité FPDF (latin-1 uniquement).
+    
+    Args:
+        text (str): Texte à nettoyer
+        
+    Returns:
+        str: Texte nettoyé sans emojis ni caractères spéciaux
+    """
     import re
     # Supprimer les emojis
     text = re.sub(r'[^\x00-\x7F\xc0-\xff]', '', str(text))
@@ -236,7 +299,15 @@ def clean_for_pdf(text):
     return text.strip()
 
 def generate_report_pdf(prediction_data, features):
-    """Génère un rapport PDF riche pour un bâtiment donné"""
+    """Génère un rapport PDF complet d'audit carbone.
+    
+    Args:
+        prediction_data (float): Prédiction CO2 (tonnes/an)
+        features (dict): Caractéristiques du bâtiment
+        
+    Returns:
+        bytes: Contenu du PDF encodé en latin-1, ou None si erreur
+    """
     try:
         from fpdf import FPDF
         
@@ -249,14 +320,14 @@ def generate_report_pdf(prediction_data, features):
         # Benchmark
         # Estimation médiane approximative (TCO2)
         base_eui_median = BUILDING_TYPE_BENCHMARKS.get(btype, 100)
-        median_ref = (gfa * base_eui_median) / 1000 * 0.05 
+        median_ref = (gfa * base_eui_median) / 1000 * CO2_CONVERSION_FACTOR
         if median_ref < 10: median_ref = prediction_val * 1.2 # Fallback
         
         gap_median = ((prediction_val - median_ref) / median_ref) * 100
         
-        # Simulation (HVAC + LED -> ~ +20 ES score)
+        # Simulation (HVAC + LED -> amélioration Energy Star)
         f_optim = features.copy()
-        f_optim['ENERGYSTARScore'] = min(current_es + 25, 100)
+        f_optim['ENERGYSTARScore'] = min(current_es + ENERGY_STAR_IMPROVEMENT_TARGET, 100)
         optim_val, _ = predict_co2(f_optim)
         savings = prediction_val - optim_val
         savings_pct = (savings / prediction_val) * 100 if prediction_val > 0 else 0
@@ -330,7 +401,7 @@ def generate_report_pdf(prediction_data, features):
         pdf.ln(5)
         
         pdf.set_font("Arial", '', 11)
-        pdf.multi_cell(0, 6, clean_for_pdf(f"En realisant un bouquet de travaux (CVC + Isolation) permettant d'atteindre un score Energy Star de {min(current_es + 25, 100):.0f} (+25 pts), voici les economies projetees :"))
+        pdf.multi_cell(0, 6, clean_for_pdf(f"En realisant un bouquet de travaux (CVC + Isolation) permettant d'atteindre un score Energy Star de {min(current_es + ENERGY_STAR_IMPROVEMENT_TARGET, 100):.0f} (+{ENERGY_STAR_IMPROVEMENT_TARGET} pts), voici les economies projetees :"))
         pdf.ln(4)
         
         # Savings Box
@@ -346,8 +417,8 @@ def generate_report_pdf(prediction_data, features):
         pdf.set_font("Arial", 'B', 16)
         pdf.set_text_color(0, 150, 70)
         pdf.cell(90, 10, f"- {savings:.1f} T ({savings_pct:.0f}%)", align='C')
-        # Estimation coût carbone social simple (100$ / T)
-        financial = savings * 100 
+        # Estimation coût carbone social
+        financial = savings * CARBON_COST_PER_TON
         pdf.cell(90, 10, f"~ {financial:,.0f} $ / an", align='C', ln=True)
         pdf.set_text_color(0, 0, 0)
         pdf.ln(10)
@@ -366,7 +437,7 @@ def generate_report_pdf(prediction_data, features):
         # 6. VISION 2050
         pdf.ln(5)
         target_2050 = 0
-        target_2030 = median_ref * 0.6
+        target_2030 = median_ref * TARGET_2030_REDUCTION
         pdf.set_font("Arial", 'B', 16)
         pdf.cell(0, 10, clean_for_pdf("  5. Trajectoire 2050"), ln=True, fill=True)
         pdf.ln(4)
@@ -435,16 +506,16 @@ def get_decarbonization_recommendations(inputs):
     recos = []
     
     if es_score < 60:
-        recos.append("📈 Améliorer le score Energy Star (isolation, équipements efficaces)")
+        recos.append("📈 Boost Energy Star : Modernisez vos équipements pour grimper dans le classement écologique.")
     
     if 'Office' in building_type:
-        recos.append("💡 Installer des détecteurs de présence pour l'éclairage")
-        recos.append("🌡️ Optimiser la programmation du CVC selon l'occupation")
+        recos.append("💡 Éclairage Intelligent : Installez des lampes qui s'éteignent seules quand les bureaux sont vides.")
+        recos.append("🌡️ Chauffage Malin : Réglez le chauffage pour qu'il baisse automatiquement la nuit et le week-end.")
     
     if 'Hospital' in building_type or 'Hotel' in building_type:
-        recos.append("💧 Optimiser la gestion de l'eau chaude sanitaire")
+        recos.append("💧 Eau Chaude Économe : Installez des systèmes performants pour ne pas chauffer l'eau inutilement.")
     
-    recos.append("🔋 Évaluer l'installation de panneaux solaires")
-    recos.append("🏗️ Rénovation énergétique profonde (toiture, murs, fenêtres)")
+    recos.append("☀️ Énergie Solaire : Produisez votre propre électricité verte en installant des panneaux sur le toit.")
+    recos.append("🏠 Isolation Renforcée : Changez les vieilles fenêtres et isolez les murs pour garder la chaleur.")
     
     return recos

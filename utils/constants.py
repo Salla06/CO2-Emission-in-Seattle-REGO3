@@ -106,3 +106,18 @@ COLORS = {
     'card': '#1e293b',
     'success': '#10b981'
 }
+
+# Facteurs de conversion et calculs
+CO2_CONVERSION_FACTOR = 0.05  # Facteur de conversion kBtu -> TCO2
+ENERGY_STAR_IMPACT_WEIGHT = 0.8  # Poids de l'impact Energy Star
+ENERGY_STAR_BASE_FACTOR = 1.4  # Facteur de base pour Energy Star
+GAS_ESTIMATION_FACTOR = 0.1  # Estimation consommation gaz par sqft
+STEAM_ESTIMATION_FACTOR = 0.05  # Estimation consommation vapeur par sqft
+ELECTRICITY_BASE_FACTOR = 15  # Consommation électricité de base par sqft
+NEIGHBORHOOD_STD_PROXY = 0.4  # Proxy pour écart-type quartier
+BUILDING_TYPE_STD_PROXY = 0.5  # Proxy pour écart-type type de bâtiment
+ENERGY_STAR_IMPROVEMENT_TARGET = 25  # Points d'amélioration cible Energy Star
+CARBON_COST_PER_TON = 100  # Coût social du carbone ($/T)
+TARGET_2030_REDUCTION = 0.6  # Réduction cible 2030 (60%)
+MAX_UPLOAD_SIZE_MB = 5  # Taille maximale upload CSV (MB)
+

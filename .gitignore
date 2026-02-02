@@ -25,13 +25,50 @@ wheels/
 venv/
 .venv/
 env/
+ENV/
 
 # IDE configurations
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # Dataset files (if they are too big or confidential, otherwise keep them commented out)
 # data/
 
 # Logs
 *.log
+
+# Environment variables et secrets
+.env
+.env.local
+.env.*.local
+secrets.json
+config.local.yaml
+
+# Tests et couverture
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Dash/Plotly cache
+.dash_cache/
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.swp
+~*
+
