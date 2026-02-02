@@ -40,7 +40,7 @@ def get_sidebar_content(lang):
         html.Div([
             html.I(className="fas fa-city me-2", style={"fontSize": "1.5rem", "color": "#00fa9a"}),
             html.H2("Seattle Dashboard", className="d-inline", style={"color": "#00fa9a", "fontSize": "1.5rem"})
-        ], className="text-center mb-3 mt-2"),
+        ], className="text-center mb-3", style={"marginTop": "60px"}),
         html.P(t['subtitle'], className="text-muted small text-center mb-4"),
         html.Div(style={"height": "60px"}), # Espace pour le bouton MENU flottant
         html.Hr(),
