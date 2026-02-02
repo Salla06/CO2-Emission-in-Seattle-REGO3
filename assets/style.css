@@ -43,6 +43,8 @@
 }
 
 .sidebar-nav .nav-link {
+    margin-left: 10px;
+    /* Indentation ajoutée */
     color: #ccc;
     border-radius: 10px;
     margin-bottom: 5px;
