@@ -77,8 +77,8 @@ header_static = html.Div([
             n_clicks=0,
             style={
                 "position": "fixed",
-                "top": "20px",  # Retour en haut pour être accessible
-                "left": "20px",
+                "top": "10px",  # Plus haut pour dégager le titre
+                "left": "10px", # Plus à gauche
                 "zIndex": "9999",
                 "background": "rgba(0, 250, 154, 0.9)",
                 "border": "2px solid #fff",
