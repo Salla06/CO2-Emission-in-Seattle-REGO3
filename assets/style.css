@@ -1,0 +1,153 @@
+/* Seattle CO2 Dashboard - Styles Principaux */
+
+/* Variables CSS */
+:root {
+    --primary-color: #00fa9a;
+    --bg-dark: #1a1a1a;
+    --bg-card: rgba(255, 255, 255, 0.05);
+    --text-muted: #888;
+}
+
+/* Glass Card Effect */
+.glass-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card:hover {
+    border-color: rgba(0, 250, 154, 0.3);
+    transition: all 0.3s ease;
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
+    z-index: 1000;
+}
+
+.sidebar-hidden {
+    transform: translateX(-100%);
+}
+
+.sidebar-nav .nav-link {
+    color: #ccc;
+    border-radius: 10px;
+    margin-bottom: 5px;
+    transition: all 0.2s ease;
+}
+
+.sidebar-nav .nav-link:hover {
+    background: rgba(0, 250, 154, 0.1);
+    color: var(--primary-color);
+}
+
+.sidebar-nav .nav-link.active {
+    background: var(--primary-color);
+    color: #000;
+    font-weight: bold;
+}
+
+/* Toggle Button */
+.sidebar-toggle-btn-inline {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1100;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--primary-color);
+    border-radius: 10px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle-btn-inline:hover {
+    background: var(--primary-color);
+    color: #000;
+}
+
+.btn-floating {
+    left: 20px;
+}
+
+/* Page Content */
+#page-content {
+    margin-left: 300px;
+    padding: 40px;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+.content-collapsed {
+    margin-left: 20px;
+}
+
+/* Stats */
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    text-shadow: 0 0 20px rgba(0, 250, 154, 0.3);
+}
+
+/* Zoomable Images */
+.zoomable-img {
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.zoomable-img:hover {
+    transform: scale(1.02);
+}
+
+/* Form Controls */
+.form-control {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 8px;
+}
+
+.form-control:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 250, 154, 0.25);
+    color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+    }
+
+    #page-content {
+        margin-left: 0;
+        padding: 20px;
+    }
+
+    .content-collapsed {
+        margin-left: 0;
+    }
+}
