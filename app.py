@@ -597,64 +597,93 @@ def update_sim_graph(boost, lang, stored_data):
     return fig, summary_text
        
 def layout_star(lang):
+    return html.Div(id="dynamic-star-container")
+
+@app.callback(
+    Output("dynamic-star-container", "children"),
+    [Input("lang-switch", "value"), Input("url", "pathname")],
+    [State("stored-building-features", "data"), State("current-prediction", "data")]
+)
+def update_star_page(lang, pathname, features, prediction):
+    if pathname != "/star": return dash.no_update
+    lang = lang or 'FR'
     t = TRANSLATIONS[lang]
-    metrics = get_seattle_metrics()
-    importance = get_feature_importance()
     
+    # Si pas de prédiction, afficher message d'accueil
+    if not prediction or not features:
+        return html.Div([
+            html.Div([
+                html.I(className="fas fa-star fa-4x mb-4", style={"color": "#00fa9a"}),
+                html.H2(t['nav_star']),
+                html.P("Veuillez d'abord effectuer une prédiction pour analyser l'impact Energy Star.", className="text-muted"),
+                dbc.Button(t['nav_predict'], href="/predict", color="success", className="mt-3")
+            ], className="text-center py-5 glass-card")
+        ], style={"maxWidth": "800px", "margin": "0 auto"})
+
+    # Simulation dynamique
+    metrics = get_seattle_metrics()
+    current_es = features.get('ENERGYSTARScore', 60)
+    current_val = float(prediction)
+    
+    # Scénarios
+    scenarios = [25, 50, 75, 90, 100]
+    simulated_emissions = []
+    
+    for score in scenarios:
+        f_copy = features.copy()
+        f_copy['ENERGYSTARScore'] = score
+        pred, _ = predict_co2(f_copy)
+        simulated_emissions.append(pred)
+        
+    # Création graphique
+    fig = go.Figure(data=[
+        go.Bar(
+            x=[f"Score {s}" for s in scenarios],
+            y=simulated_emissions,
+            marker_color=['#ef4444', '#f59e0b', '#fcd34d', '#10b981', '#059669'],
+            text=[f"{v:.1f} T" for v in simulated_emissions],
+            textposition='auto'
+        )
+    ])
+    
+    fig.add_shape(type="line", x0=-0.5, x1=4.5, y0=current_val, y1=current_val,
+                  line=dict(color="white", width=2, dash="dash"))
+    fig.add_annotation(x=4, y=current_val, text="Votre Bâtiment", showarrow=False, yshift=10)
+
+    fig.update_layout(
+        template="plotly_dark", 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)', 
+        height=400,
+        title="Impact du Score Energy Star sur vos Émissions",
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
+
     r2_gain = ((metrics['with_es']['R2'] / metrics['without_es']['R2']) - 1) * 100
     mae_reduction = ((1 - metrics['with_es']['MAE'] / metrics['without_es']['MAE'])) * 100
 
     return html.Div([
         html.H1([html.I(className="fas fa-star me-3"), t['nav_star']], className="mb-4 text-center"),
-        # Row 1: Key Metrics
+        
+        # Row 1: Metrics
         dbc.Row([
             dbc.Col(dbc.Card([
-                html.H6("Gain Précision (R²)" if lang=='FR' else "R² Precision Gain"),
+                html.H6("Gain Précision Modèle"),
                 html.H2(f"+{r2_gain:.2f}%", style={"color": "#00fa9a"})
             ], className="glass-card text-center p-3"), width=6),
             dbc.Col(dbc.Card([
-                html.H6("Baisse Erreur Moyenne (MAPE)" if lang=='FR' else "MAPE Reduction"),
-                html.H2(f"-{mae_reduction:.2f}%", style={"color": "#ffd700"})
+                html.H6("Sensibilité Energy Star"),
+                html.H2("Haute", style={"color": "#ffd700"})
             ], className="glass-card text-center p-3"), width=6),
         ], className="mb-4"),
-        # Row 2: Correlation Analysis
-        # Row 2: Sensitivity Analysis (New enriched content)
+
+        # Row 2: Simulation Graph
         dbc.Row([
             dbc.Col(dbc.Card([
-                html.H5("Simulation d'Impact : Score vs Émissions" if lang=='FR' else "Impact Simulation: Score vs Emissions"),
-                html.P("Estimation de la réduction des émissions pour un bâtiment standard en améliorant le score Energy Star." if lang=='FR' else "Estimated emission reduction for a standard building by improving Energy Star score.", className="text-muted small"),
-                dcc.Graph(figure=go.Figure(data=[
-                    go.Bar(
-                        x=['Score 25 (Faible)', 'Score 50 (Moyen)', 'Score 75 (Bon)', 'Score 90 (Excellent)'],
-                        y=[100, 85, 65, 50], # Mock data illustrative of the model's trend
-                        marker=dict(color=['#ef4444', '#f59e0b', '#00fa9a', '#10b981']),
-                        text=["Base (100%)", "-15%", "-35%", "-50%"],
-                        textposition='auto'
-                    )
-                ]).update_layout(
-                    template="plotly_dark", 
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)', 
-                    height=300,
-                    margin=dict(l=20, r=20, t=30, b=20),
-                    yaxis=dict(title="Émissions Relatives %", showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
-                    xaxis=dict(title="")
-                ))
-            ], className="glass-card p-3 mb-4"), width=12),
-        ]),
-        # Row 3: Feature Importance
-        dbc.Row([
-            dbc.Col(dbc.Card([
-                html.H5("Poids dans le Modèle 2" if lang=='FR' else "Weight in Model 2"),
-                dcc.Graph(figure=go.Figure(data=[
-                    go.Bar(
-                        y=[d['feature'] for d in importance[::-1]], 
-                        x=[d['importance'] for d in importance[::-1]], 
-                        orientation='h', 
-                        marker_color='#00fa9a'
-                    )
-                ]).update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=400, margin=dict(l=10, r=10, t=30, b=10)))
-            ], className="glass-card"), width=12),
+                html.H5("Simulation Personnalisée"),
+                html.P(f"Projection pour votre bâtiment ({features.get('PropertyGFATotal')} sqft, {features.get('PrimaryPropertyType')})", className="text-muted small"),
+                dcc.Graph(figure=fig)
+            ], className="glass-card p-3"), width=12),
         ])
     ])
 
