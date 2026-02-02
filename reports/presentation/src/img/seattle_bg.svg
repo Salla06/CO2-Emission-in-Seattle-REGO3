@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!-- Dégradé de fond -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a2980;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#26d0ce;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="buildingGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Arrière-plan -->
+  <rect width="800" height="600" fill="url(#skyGradient)"/>
+  
+  <!-- Soleil -->
+  <circle cx="650" cy="100" r="40" fill="#FFD700" opacity="0.8"/>
+  
+  <!-- Bâtiments silhouette -->
+  <rect x="50" y="300" width="120" height="300" fill="url(#buildingGradient)"/>
+  <rect x="80" y="250" width="40" height="350" fill="#667eea"/>
+  
+  <rect x="200" y="250" width="100" height="350" fill="#4facfe"/>
+  <rect x="210" y="200" width="25" height="400" fill="#0099ff"/>
+  
+  <rect x="350" y="200" width="130" height="400" fill="#764ba2"/>
+  <rect x="365" y="150" width="35" height="450" fill="#667eea"/>
+  
+  <rect x="520" y="280" width="110" height="320" fill="#43e97b"/>
+  <rect x="545" y="230" width="30" height="370" fill="#38f9d7"/>
+  
+  <!-- Fenêtres des bâtiments -->
+  <g fill="#FFD700" opacity="0.6">
+    <circle cx="70" cy="320" r="8"/>
+    <circle cx="70" cy="360" r="8"/>
+    <circle cx="70" cy="400" r="8"/>
+    <circle cx="100" cy="320" r="8"/>
+    <circle cx="100" cy="360" r="8"/>
+    <circle cx="100" cy="400" r="8"/>
+  </g>
+  
+  <!-- Symbole CO2 flottant -->
+  <g opacity="0.3">
+    <text x="150" y="150" font-size="80" fill="white" font-weight="bold" font-family="Arial">CO₂</text>
+  </g>
+  
+  <!-- Nuages avec émissions -->
+  <g opacity="0.4">
+    <ellipse cx="200" cy="80" rx="50" ry="30" fill="white"/>
+    <ellipse cx="150" cy="100" rx="40" ry="25" fill="white"/>
+    <ellipse cx="250" cy="100" rx="45" ry="28" fill="white"/>
+  </g>
+  
+  <!-- Particules d'émission -->
+  <g fill="#FFB6C1" opacity="0.5">
+    <circle cx="250" cy="60" r="3"/>
+    <circle cx="240" cy="50" r="2"/>
+    <circle cx="260" cy="45" r="2.5"/>
+  </g>
+</svg>
