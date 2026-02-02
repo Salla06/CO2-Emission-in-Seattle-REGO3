@@ -3,14 +3,19 @@ import joblib
 import pandas as pd
 import numpy as np
 import json
-from .constants import MODEL_PATH, BUILDING_TYPE_BENCHMARKS, NEIGHBORHOOD_STATS
+from .constants import MODEL_PATH, BUILDING_TYPE_BENCHMARKS, NEIGHBORHOOD_STATS, RESULTS_DIR
 
 class Predictor:
     def __init__(self):
         self.model = None
         self.feature_columns = []
         self.is_loaded = False
-        self._load_resources()
+    def __init__(self):
+        self.model = None
+        self.feature_columns = []
+        self.is_loaded = False
+        # Lazy loading: Resources are loaded on first predict call
+
 
     def _load_resources(self):
         try:
@@ -48,6 +53,10 @@ class Predictor:
         return round(max(estimated_co2, 0.1), 2)
 
     def predict(self, input_data):
+        # Lazy load logic
+        if not self.is_loaded:
+            self._load_resources()
+
         if not self.is_loaded or not self.feature_columns:
             return self._mock_predict(input_data['gfa'], input_data.get('energy_star_score'), input_data['building_type'])
 
@@ -173,20 +182,48 @@ def get_smart_es_suggestion(building_type):
     return val, note
 
 def get_seattle_metrics():
-    """Retourne des métriques comparatives réelles avec/sans Energy Star"""
-    # Basé sur les résultats réels : Model 2 (Random Forest) vs Model 1 (Gradient Boosting)
+    """Retourne des métriques comparatives réelles avec/sans Energy Star (CSV Based)"""
+    try:
+        path = os.path.join(RESULTS_DIR, 'metrics_comparison.json')
+        if os.path.exists(path):
+            # Le fichier est un CSV malgré l'extension (copie directe)
+            try:
+                df = pd.read_csv(path)
+                
+                # Extraction M1 (Sans ES) et M2 (Avec ES)
+                # On cherche les meilleures performances (R2 max) pour chaque catégorie
+                m1_row = df[df['Modèle'].astype(str).str.contains('M1')].sort_values('R² Test', ascending=False).iloc[0]
+                m2_row = df[df['Modèle'].astype(str).str.contains('M2')].sort_values('R² Test', ascending=False).iloc[0]
+
+                return {
+                    'with_es': {
+                        'R2': m2_row['R² Test'],
+                        'MAE': m2_row['MAPE'], # Using MAPE as proxy for MAE if not present
+                        'RMSE': m2_row['RMSE Original'],
+                        'MAPE': m2_row['MAPE']
+                    },
+                    'without_es': {
+                        'R2': m1_row['R² Test'],
+                        'MAE': m1_row['MAPE'],
+                        'RMSE': m1_row['RMSE Original'],
+                        'MAPE': m1_row['MAPE']
+                    }
+                }
+            except Exception as parse_error:
+                print(f"CSV Parse Error: {parse_error}")
+                # Fallback to hardcoded if CSV structure is unexpected
+    except Exception as e:
+        print(f"Metrics Load Error: {e}")
+    except Exception as e:
+        print(f"Metrics Load Error: {e}")
+
+    # Fallback Values
     return {
         'with_es': {
-            'R2': 0.9849,
-            'MAE': 7.35, # MAPE stocké dans clé MAE pour affichage
-            'RMSE': 47.45,
-            'MAPE': 7.35
+            'R2': 0.9849, 'MAE': 7.35, 'RMSE': 47.45, 'MAPE': 7.35
         },
         'without_es': {
-            'R2': 0.9846,
-            'MAE': 9.05,
-            'RMSE': 52.09,
-            'MAPE': 9.05
+            'R2': 0.9846, 'MAE': 9.05, 'RMSE': 52.09, 'MAPE': 9.05
         }
     }
 
@@ -203,85 +240,147 @@ def generate_report_pdf(prediction_data, features):
     try:
         from fpdf import FPDF
         
+        # Calculs Préliminaires
+        btype = features.get('PrimaryPropertyType', 'Office')
+        gfa = float(features.get('PropertyGFATotal', 50000))
+        current_es = float(features.get('ENERGYSTARScore', 50))
+        prediction_val = float(prediction_data)
+        
+        # Benchmark
+        # Estimation médiane approximative (TCO2)
+        base_eui_median = BUILDING_TYPE_BENCHMARKS.get(btype, 100)
+        median_ref = (gfa * base_eui_median) / 1000 * 0.05 
+        if median_ref < 10: median_ref = prediction_val * 1.2 # Fallback
+        
+        gap_median = ((prediction_val - median_ref) / median_ref) * 100
+        
+        # Simulation (HVAC + LED -> ~ +20 ES score)
+        f_optim = features.copy()
+        f_optim['ENERGYSTARScore'] = min(current_es + 25, 100)
+        optim_val, _ = predict_co2(f_optim)
+        savings = prediction_val - optim_val
+        savings_pct = (savings / prediction_val) * 100 if prediction_val > 0 else 0
+
+        # --- PDF CREATION ---
         pdf = FPDF()
         pdf.add_page()
         
-        # --- HEADER ---
-        pdf.set_fill_color(15, 23, 42) # Bleu Slate
+        # 1. HEADER
+        pdf.set_fill_color(0, 50, 80) # Bleu Nuit
         pdf.rect(0, 0, 210, 40, 'F')
         
         pdf.set_text_color(255, 255, 255)
-        pdf.set_font("Arial", 'B', 20)
-        pdf.cell(0, 25, clean_for_pdf("RAPPORT D'EMISSIONS CARBONE"), ln=True, align='C')
-        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 22)
+        pdf.set_y(10)
+        pdf.cell(0, 10, clean_for_pdf("RAPPORT D'AUDIT CARBONE"), ln=True, align='C')
+        pdf.set_font("Arial", 'I', 12)
+        pdf.cell(0, 10, clean_for_pdf(f"Projet Seattle City - Analyse Predictive"), ln=True, align='C')
+        pdf.ln(20)
         
         pdf.set_text_color(0, 0, 0)
         
-        # --- PRINCIPAL RESULT ---
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 15, clean_for_pdf("Resultat de la Prediction"), ln=True)
-        
-        pdf.set_fill_color(240, 240, 240)
-        pdf.set_font("Arial", 'B', 24)
-        pdf.set_text_color(0, 150, 70) # Un vert un peu plus sombre et compatible
-        pdf.cell(0, 20, f"{prediction_data:.1f} Tonnes CO2 / an", fill=True, ln=True, align='C')
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(5)
-        
-        # Performance Score
-        btype = features.get('PrimaryPropertyType', 'Office')
-        bench = BUILDING_TYPE_BENCHMARKS.get(btype, 100)
-        ratio = prediction_data / bench if bench > 0 else 1.0
-        
-        score_letter = "A" if ratio < 0.5 else "B" if ratio < 0.9 else "C" if ratio < 1.3 else "D"
-        color = (0, 150, 0) if score_letter == "A" else (200, 150, 0) if score_letter == "B" else (200, 50, 0)
-        
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(50, 10, clean_for_pdf("Score de Performance :"))
-        pdf.set_text_color(*color)
+        # 2. EXECUTIVE SUMMARY
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(20, 10, f"[{score_letter}]", ln=True)
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(0, 10, clean_for_pdf("  1. Resultats Cles"), ln=True, fill=True)
         pdf.ln(5)
         
-        # --- BUILDING INFO ---
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, clean_for_pdf("Fiche d'Identite du Batiment"), ln=True)
-        pdf.set_font("Arial", '', 11)
+        # Prediction Box
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(100, 10, clean_for_pdf("Emissions Estimees (2026) :"))
+        pdf.set_font("Arial", 'B', 18)
+        color = (200, 50, 0) if gap_median > 20 else (200, 150, 0) if gap_median > 0 else (0, 150, 0)
+        pdf.set_text_color(*color)
+        pdf.cell(0, 10, f"{prediction_val:.1f} Tonnes CO2/an", ln=True)
+        pdf.set_text_color(0, 0, 0)
         
-        mapping = [
-            ('PrimaryPropertyType', 'Usage'),
-            ('Neighborhood', 'Quartier'),
-            ('PropertyGFATotal', 'Surface (sqft)'),
-            ('YearBuilt', 'Construction'),
-            ('ENERGYSTARScore', 'Energy Star'),
-            ('NumberofFloors', 'Etages')
+        # Benchmark Context
+        pdf.set_font("Arial", '', 11)
+        pdf.ln(2)
+        status_text = "Sous-performant" if gap_median > 10 else "Aligné" if gap_median > -10 else "Efficient"
+        pdf.cell(0, 8, clean_for_pdf(f"Positionnement : {status_text} par rapport a la mediane locale ({median_ref:.1f} T)."), ln=True)
+        pdf.ln(5)
+
+        # 3. BUILDING IDENTITY
+        pdf.set_font("Arial", 'B', 16)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(0, 10, clean_for_pdf("  2. Fiche d'Identite"), ln=True, fill=True)
+        pdf.ln(4)
+        
+        ident_data = [
+            ("Type d'Usage", btype),
+            ("Quartier", features.get('Neighborhood', 'N/A')),
+            ("Surface Totale", f"{gfa:,.0f} sqft"),
+            ("Annee Construction", features.get('YearBuilt', 'N/A')),
+            ("Score Energy Star Actuel", f"{current_es:.0f} / 100"),
+            ("Etages", features.get('NumberofFloors', 'N/A'))
         ]
         
-        for key, label in mapping:
-            val = features.get(key, 'N/A')
+        pdf.set_font("Arial", '', 11)
+        for label, val in ident_data:
+            pdf.cell(60, 7, clean_for_pdf(f"{label} :"), border=0)
             pdf.set_font("Arial", 'B', 11)
-            pdf.cell(50, 8, clean_for_pdf(f"{label} : "))
+            pdf.cell(0, 7, clean_for_pdf(str(val)), ln=True, border=0)
             pdf.set_font("Arial", '', 11)
-            pdf.cell(0, 8, clean_for_pdf(f"{val}"), ln=True)
+        pdf.ln(8)
         
+        # 4. SIMULATION & SAVINGS
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, clean_for_pdf("  3. Potentiel d'Amelioration"), ln=True, fill=True)
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", '', 11)
+        pdf.multi_cell(0, 6, clean_for_pdf(f"En realisant un bouquet de travaux (CVC + Isolation) permettant d'atteindre un score Energy Star de {min(current_es + 25, 100):.0f} (+25 pts), voici les economies projetees :"))
+        pdf.ln(4)
+        
+        # Savings Box
+        pdf.set_draw_color(0, 150, 70)
+        pdf.set_line_width(0.5)
+        pdf.rect(15, pdf.get_y(), 180, 25)
+        
+        pdf.set_y(pdf.get_y() + 5)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(90, 8, clean_for_pdf("     Reduction CO2 Annuelle"), align='C')
+        pdf.cell(90, 8, clean_for_pdf("     Economies Financieres (est.)"), align='C', ln=True)
+        
+        pdf.set_font("Arial", 'B', 16)
+        pdf.set_text_color(0, 150, 70)
+        pdf.cell(90, 10, f"- {savings:.1f} T ({savings_pct:.0f}%)", align='C')
+        # Estimation coût carbone social simple (100$ / T)
+        financial = savings * 100 
+        pdf.cell(90, 10, f"~ {financial:,.0f} $ / an", align='C', ln=True)
+        pdf.set_text_color(0, 0, 0)
         pdf.ln(10)
         
-        # --- RECOMMENDATIONS ---
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, clean_for_pdf("Recommandations de Decarbonation"), ln=True)
-        pdf.set_font("Arial", '', 11)
+        # 5. RECOMMENDATIONS
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, clean_for_pdf("  4. Plan d'Action Recommande"), ln=True, fill=True)
+        pdf.ln(4)
         
         recos = get_decarbonization_recommendations(features)
+        pdf.set_font("Arial", '', 11)
         for r in recos:
-            pdf.multi_cell(0, 8, f"* {clean_for_pdf(r)}")
+            pdf.cell(5, 8, "-", ln=0)
+            pdf.multi_cell(0, 8, clean_for_pdf(r))
             
-        # --- FOOTER ---
-        pdf.set_y(-30)
+        # 6. VISION 2050
+        pdf.ln(5)
+        target_2050 = 0
+        target_2030 = median_ref * 0.6
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, clean_for_pdf("  5. Trajectoire 2050"), ln=True, fill=True)
+        pdf.ln(4)
+        pdf.set_font("Arial", '', 11)
+        
+        compliance_text = "Bâtiment aligné avec les objectifs 2030." if prediction_val <= target_2030 else f"Effort requis pour 2030 : -{prediction_val - target_2030:.1f} T."
+        pdf.multi_cell(0, 6, clean_for_pdf(f"Objectif Seattle 2030 (Neutralite Carbone partielle) : {target_2030:.1f} T.\n{compliance_text}"))
+
+        # Footer
+        pdf.set_y(-25)
         pdf.set_font("Arial", 'I', 8)
-        pdf.set_text_color(128, 128, 128)
-        pdf.cell(0, 10, clean_for_pdf("Ce rapport est une estimation basee sur les modeles de Machine Learning."), align='C', ln=True)
-        pdf.cell(0, 5, clean_for_pdf("Dashboard Seattle City 2026 - Outil d'aide a la decision."), align='C')
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(0, 5, clean_for_pdf("Rapport genere automatiquement par Seattle CO2 Dashboard."), align='C', ln=True)
+        pdf.cell(0, 5, clean_for_pdf("Les valeurs sont des estimations predictives a caractere informatif."), align='C')
         
         return pdf.output(dest='S').encode('latin-1')
     except Exception as e:

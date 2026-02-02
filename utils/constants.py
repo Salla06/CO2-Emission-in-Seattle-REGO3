@@ -7,10 +7,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed_data')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
+RESULTS_DIR = os.path.join(BASE_DIR, 'results')
 ASSETS_DIR = os.path.join(BASE_DIR, 'assets')
 
 # Fichiers spécifiques
 TRAIN_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, 'train_processed.csv')
+TEST_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, 'test_processed.csv')
 MODEL_PATH = os.path.join(MODELS_DIR, 'pipeline_modele2_best.pkl')
 
 # Listes de référence

@@ -1,3 +1,4 @@
+print("Chargement des bibliothèques en cours... Veuillez patienter.")
 import dash
 from dash import dcc, html, Input, Output, State, dash_table, ALL, callback_context
 import dash_bootstrap_components as dbc
@@ -10,13 +11,14 @@ import io
 import os
 import json
 import warnings
+import traceback
 
 # Suppress sklearn version warnings to prevent console clutter
 warnings.filterwarnings("ignore", message="Trying to unpickle estimator")
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 # Internal imports
-from utils.constants import BUILDING_TYPES, NEIGHBORHOODS, CITY_WIDE_STATS, BUILDING_TYPE_BENCHMARKS, NEIGHBORHOOD_STATS
+from utils.constants import BUILDING_TYPES, NEIGHBORHOODS, CITY_WIDE_STATS, BUILDING_TYPE_BENCHMARKS, NEIGHBORHOOD_STATS, RESULTS_DIR, TRAIN_DATA_PATH, TEST_DATA_PATH
 from utils.prediction_logic import (
     predict_co2, get_seattle_metrics, generate_report_pdf, 
     get_feature_importance, get_reliability_info, 
@@ -99,11 +101,22 @@ header_static = html.Div([
             value='FR',
             labelStyle={'display': 'inline-block', 'marginRight': '15px', 'color': '#00fa9a', 'fontWeight': 'bold'},
             inputStyle={'marginRight': '5px'}
+        ),
+        html.Div(style={"width": "1px", "height": "20px", "background": "rgba(255,255,255,0.2)", "display": "inline-block", "margin": "0 15px", "verticalAlign": "middle"}),
+        dbc.Button(
+            html.I(className="fas fa-moon", id="theme-icon"),
+            id="theme-switch",
+            color="link",
+            style={"color": "#ffd700", "fontSize": "1.2rem", "border": "none", "textDecoration": "none", "padding": "0"},
+            title="Mode Sombre/Clair"
         )
     ], style={"position": "fixed", "top": "20px", "right": "40px", "zIndex": "2000", "background": "rgba(0,0,0,0.5)", "padding": "10px 20px", "borderRadius": "30px", "backdropFilter": "blur(10px)", "border": "1px solid rgba(255,255,255,0.1)"})
 ])
 
-app.layout = html.Div([
+
+
+app.layout = html.Div(id="theme-wrapper-div", children=[
+    dcc.Store(id="theme-store", storage_type="local", data="dark"),
     dcc.Location(id="url"),
     dcc.Store(id="stored-building-features", storage_type="session", data={
         'PropertyGFATotal': 50000,
@@ -138,25 +151,60 @@ app.layout = html.Div([
 ])
 
 # --- PAGE 1: INSIGHTS (Improvement 1: Real Map) ---
-def layout_insights(lang):
+# --- PAGE 1: INSIGHTS (Improvement 1: Real Map) ---
+def layout_insights(lang, theme='dark'):
     t = TRANSLATIONS[lang]
-    # NEIGHBORHOODS est déjà triée et unique dans constants.py
+    template = "plotly_white" if theme == 'light' else "plotly_dark"
+    mapbox = "carto-positron" if theme == 'light' else "carto-darkmatter"
+    
+    # Recalcul des KPIs pour être sûr (ou utiliser CITY_WIDE_STATS)
+    df = load_full_data()
+    
+    # MAP Generation
+    if not df.empty and 'Latitude' in df.columns:
+        fig_map = px.scatter_map(
+            df, 
+            lat="Latitude", 
+            lon="Longitude", 
+            color="TotalGHGEmissions",
+            size="TotalGHGEmissions",
+            size_max=20, 
+            zoom=10.5,
+            map_style=mapbox,
+            hover_name="Address",
+            hover_data=["BuildingType", "YearBuilt", "ENERGYSTARScore"],
+            color_continuous_scale='RdBu_r',
+            template=template
+        )
+        fig_map.update_layout(
+            margin={"r":0,"t":0,"l":0,"b":0},
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font={'color': 'black' if theme=='light' else 'white'}
+        )
+    else:
+        fig_map = go.Figure()
+
     return html.Div([
-        html.H1([html.I(className="fas fa-chart-pie me-3"), t['nav_insights']], className="mb-4"),
+        html.H1([html.I(className="fas fa-chart-pie me-3"), t['nav_insights']], className="mb-4 gradient-text"),
+        
+        # --- LIGNE 1 : KPIs ---
         dbc.Row([
             dbc.Col(dbc.Card([
                 html.Div("Total Bâtiments" if lang=='FR' else "Total Buildings", className="stat-label"),
-                html.Div(f"{CITY_WIDE_STATS['total_buildings']}", id="kpi-count", className="stat-value")
+                html.Div(f"{len(df)}", id="kpi-count", className="stat-value")
             ], className="glass-card"), width=4),
             dbc.Col(dbc.Card([
                 html.Div(t['kpi_avg_co2'], className="stat-label"),
-                html.Div(f"{CITY_WIDE_STATS['mean_co2']} T", id="kpi-mean-co2", className="stat-value")
+                html.Div(f"{df['TotalGHGEmissions'].mean():.1f} T", id="kpi-mean-co2", className="stat-value")
             ], className="glass-card"), width=4),
             dbc.Col(dbc.Card([
                 html.Div(t['kpi_avg_es'], className="stat-label"),
-                html.Div(f"{CITY_WIDE_STATS['avg_energy_star']}", id="kpi-mean-estar", className="stat-value")
+                html.Div(f"{df['ENERGYSTARScore'].mean():.1f}", id="kpi-mean-estar", className="stat-value")
             ], className="glass-card"), width=4),
-        ]),
+        ], className="mb-4"),
+
+        # --- LIGNE 2 : CARTE ---
         dbc.Row([
             dbc.Col(dbc.Card([
                 html.Div([
@@ -165,41 +213,51 @@ def layout_insights(lang):
                         html.Small("Filtrez les quartiers pour une analyse ciblée" if lang=='FR' else "Filter neighborhoods for targeted analysis", className="text-muted")
                     ]),
                     html.Div([
-                        dcc.Dropdown(
+                         dcc.Dropdown(
                             id="map-filter-nbh",
-                            options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())],
+                            options=[{'label': n, 'value': n} for n in sorted(df['Neighborhood'].dropna().unique())],
                             multi=True,
-                            placeholder="Choisir quartiers..." if lang=='FR' else "Choose neighborhoods...",
-                            style={'width': '300px', 'backgroundColor': 'white', 'color': 'black'}
+                            placeholder="Choisir quartiers...",
+                            style={'width': '300px', 'color': 'black'}
                         )
                     ])
                 ], className="mb-3 d-flex justify-content-between align-items-center"),
                 html.Div([
-                    dcc.Loading(dcc.Graph(id="insights-map", style={"height": "600px"}), type="circle")
+                    dcc.Loading(dcc.Graph(id="insights-map", figure=fig_map, style={"height": "450px"}), type="circle")
                 ], style={"position": "relative", "overflow": "hidden", "borderRadius": "10px"}),
-                html.Div([
-                    html.Span("⬤ Taille : Émissions (Tonnes CO2)", className="me-3 small text-muted"),
-                    html.Span("⬤ Couleur : Intensité Carbone", className="small text-muted")
-                ], className="text-center mt-2")
             ], className="p-4 glass-card", style={"position": "relative"}), width=12),
+        ], className="mb-4"),
+
+        # --- LIGNE 3 : ANALYSES DÉTAILLÉES ---
+        dbc.Row([
+            dbc.Col(dbc.Card([
+                html.H5("🏭 Intensité carbone par Type" if lang=='FR' else "Carbon Intensity by Type", className="mb-3"),
+                dcc.Graph(id="insights-bar-chart", style={"height": "300px"}, config={'displayModeBar': False})
+            ], className="glass-card p-3"), width=6),
+            
+            dbc.Col(dbc.Card([
+                html.H5("🏢 Répartition du Parc Immobilier" if lang=='FR' else "Building Types Distribution", className="mb-3"),
+                dcc.Graph(id="insights-pie-chart", style={"height": "300px"}, config={'displayModeBar': False})
+            ], className="glass-card p-3"), width=6),
         ]),
-        # Toast for feedback
+
+        # Toast
         dbc.Toast(
             id="map-toast",
-            header="Configuration Prête",
+            header=t['toast_config_ready'],
             is_open=False,
             dismissable=True,
             duration=4000,
             icon="success",
             style={"position": "fixed", "top": 80, "right": 20, "width": 350, "zIndex": "3000"},
         ),
-    ])
+    ], style={"paddingBottom": "100px"})
 
 # --- PAGE 2: CALCULATEUR (With Scientific Insights) ---
-def layout_predict(lang):
+def _layout_predict_impl(lang):
     t = TRANSLATIONS[lang]
     return html.Div([
-        html.H1([html.I(className="fas fa-magic me-3"), t['pred_title']], className="mb-4 text-center"),
+        html.H1([html.I(className="fas fa-magic me-3"), t['pred_title']], className="mb-4 text-center gradient-text"),
         
         dbc.Row([
             # Sidebar: Inputs
@@ -229,6 +287,7 @@ def layout_predict(lang):
                     ], className="d-flex align-items-center mb-1"),
                     dcc.Input(id="in-es", type="number", value=60, min=0, max=100, className="form-control mb-1"),
                     html.Div(id="smart-es-note", className="small text-muted mb-3"),
+                    html.Div(id="es-error-msg", className="text-danger small fw-bold mb-2"),
 
                     html.Label("Sources d'Énergie", className="mt-3"),
                     dbc.Checklist(
@@ -254,7 +313,7 @@ def layout_predict(lang):
                         html.Div(id="reliability-badge-container")
                     ], className="d-flex justify-content-between align-items-center mb-0"),
                     html.H1(id="prediction-output", className="display-1 mb-0", style={"color": "#00fa9a", "fontWeight": "bold", "textShadow": "0 0 20px rgba(0,250,154,0.3)"}),
-                    html.P("Tonnes CO2 / an", className="text-muted"),
+                    html.P(t['tonnes_co2_year'], className="text-muted"),
                     
                     html.Hr(),
                     
@@ -262,9 +321,10 @@ def layout_predict(lang):
                     html.Div(id="decarbonization-container"),
                     
                     html.Hr(),
-                    html.H5("Explicabilité du Modèle (XAI)" if lang=='FR' else "Model Explainability (XAI)", className="mb-3 mt-4"),
+                    html.Hr(),
+                    html.H5(t['pred_xai'], className="mb-3 mt-4"),
                     dcc.Graph(id="xai-graph", style={"height": "300px"}),
-                    dbc.Button([html.I(className="fas fa-file-pdf me-2"), "Télécharger Rapport PDF"], id="btn-download-pdf", color="success", className="w-100 mt-4"),
+                    dbc.Button([html.I(className="fas fa-file-pdf me-2"), t['pred_pdf_btn']], id="btn-download-pdf", color="success", className="w-100 mt-4"),
                     dcc.Download(id="download-pdf-obj")
                 ], className="glass-card mb-4")
             ], width=7),
@@ -274,8 +334,8 @@ def layout_predict(lang):
         dbc.Row([
             dbc.Col([
                 dbc.Card([
-                    html.H3("Prédiction par Lots (CSV)" if lang=='FR' else "Batch Prediction (CSV)", className="mb-3"),
-                    html.P("Analysez un portefeuille immobilier complet. Format: CSV avec colonnes PropertyGFATotal, PrimaryPropertyType, etc.", className="text-muted"),
+                    html.H3(t['pred_batch_title'], className="mb-3"),
+                    html.P(t['pred_batch_desc'], className="text-muted"),
                     dcc.Upload(
                         id='upload-data',
                         children=html.Div(['Déposez un fichier ou ', html.A('cliquez ici')]),
@@ -290,6 +350,17 @@ def layout_predict(lang):
             ], width=12)
         ])
     ], style={"paddingBottom": "100px"})
+
+def layout_predict(lang):
+    try:
+        return _layout_predict_impl(lang)
+    except Exception as e:
+        return html.Div([
+            html.H3("⚠️ Erreur de Chargement (Layout)"),
+            html.Hr(),
+            dbc.Alert(str(e), color="danger"),
+            html.Pre(traceback.format_exc(), style={"backgroundColor": "#333", "color": "#f88", "padding": "20px", "borderRadius": "5px"})
+        ], className="container mt-5")
 
 # --- HELPER: GALLERY UI ---
 def build_gallery_ui(title, sections, lang):
@@ -340,6 +411,7 @@ def build_gallery_ui(title, sections, lang):
 def layout_analysis(lang):
     t = TRANSLATIONS[lang]
     
+    # Audit Statique (Notebook)
     sections = [
         {
             "id": "missing",
@@ -385,94 +457,337 @@ def layout_analysis(lang):
         }
     ]
 
+    # Chargement unique des données pour l'analyse
+    df_full = load_full_data()
+    
+    # 1. Matrice de Corrélation (Calculée une fois)
+    numeric_cols = ['totalghgemissions', 'siteenergyuse(kbtu)', 'propertygfatotal', 'yearbuilt', 'numberoffloors', 'energystarscore']
+    valid_cols = [c for c in df_full.columns if c.lower() in numeric_cols]
+    
+    if not valid_cols:
+        corr_matrix = pd.DataFrame()
+        fig_corr = go.Figure()
+    else:
+        corr_matrix = df_full[valid_cols].corr()
+        fig_corr = px.imshow(
+            corr_matrix, 
+            text_auto=".2f", 
+            color_continuous_scale='RdBu_r', 
+            aspect="auto",
+            title="Matrice de Corrélation (Variables Clés)"
+        )
+        fig_corr.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+
     return html.Div([
         html.H1([html.I(className="fas fa-search me-3"), t['nav_analysis']], className="mb-4"),
+        
+        # --- SECTION 1: RAPPORT STATIQUE (Notebook Reflet) ---
+        html.H3("1. Audit Initial (Notebook EDA)", className="mt-5 mb-3 text-info"),
         html.Hr(style={"borderColor": "rgba(255,255,255,0.1)"}),
-        build_gallery_ui(None, sections, lang)
+        build_gallery_ui(None, sections, lang),
+        
+        # --- SECTION 2: EXPLORATION INTERACTIVE (Améliorations) ---
+        html.H3("2. Exploration Interactive des Données", className="mt-5 mb-3 text-success"),
+        html.P("Explorez l'ensemble du jeu de données (Train + Test) via des graphiques dynamiques.", className="text-muted mb-4"),
+        html.Hr(style={"borderColor": "rgba(255,255,255,0.1)"}),
+
+        # LIGNE 1 : Matrice de Corrélation
+        dbc.Card([
+            dbc.CardHeader("🔥 2.1 Matrice de Corrélation", className="fw-bold"),
+            dbc.CardBody([
+                dcc.Graph(figure=fig_corr, config={'displayModeBar': False})
+            ])
+        ], className="mb-5 glass-card"),
+
+        # LIGNE 2 : Explorateur Scatter Plot
+        dbc.Card([
+            dbc.CardHeader("📈 2.2 Explorateur de Relations (Scatter Plot)", className="fw-bold"),
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        html.Label("Axe X"),
+                        dcc.Dropdown(
+                            id='scatter-x',
+                            options=[{'label': c, 'value': c} for c in df_full.select_dtypes(include=np.number).columns],
+                            value='PropertyGFATotal',
+                            className="text-dark"
+                        )
+                    ], width=6),
+                    dbc.Col([
+                        html.Label("Axe Y"),
+                        dcc.Dropdown(
+                            id='scatter-y',
+                            options=[{'label': c, 'value': c} for c in df_full.select_dtypes(include=np.number).columns],
+                            value='TotalGHGEmissions',
+                            className="text-dark"
+                        )
+                    ], width=6)
+                ], className="mb-3"),
+                dcc.Graph(id='analysis-scatter-graph')
+            ])
+        ], className="mb-5 glass-card"),
+
+        # LIGNE 3 : Analyse des Distributions (Boxplot)
+        dbc.Card([
+            dbc.CardHeader("📦 2.3 Analyse des Distributions & Outliers", className="fw-bold"),
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        html.Label("Variable Numérique (Y)"),
+                        dcc.Dropdown(
+                            id='boxplot-y',
+                            options=[{'label': c, 'value': c} for c in df_full.select_dtypes(include=np.number).columns],
+                            value='TotalGHGEmissions',
+                            className="text-dark"
+                        )
+                    ], width=6),
+                    dbc.Col([
+                        html.Label("Variable Catégorielle (X)"),
+                        dcc.Dropdown(
+                            id='boxplot-x',
+                            options=[{'label': c, 'value': c} for c in df_full.select_dtypes(include='object').columns if df_full[c].nunique() < 50],
+                            value='BuildingType',
+                            className="text-dark"
+                        )
+                    ], width=6)
+                ], className="mb-3"),
+                dcc.Graph(id='analysis-boxplot-graph')
+            ])
+        ], className="mb-5 glass-card"),
+
+        # LIGNE 4 : Statistiques Descriptives
+        dbc.Card([
+            dbc.CardHeader("🔢 2.4 Statistiques Descriptives Détaillées", className="fw-bold"),
+            dbc.CardBody([
+                html.Div(id='analysis-stats-table')
+            ])
+        ], className="mb-5 glass-card"),
+
     ], style={"paddingBottom": "100px"})
 
+# --- Helper pour charger les données ---
+def load_full_data():
+    try:
+        # Check files existence
+        if not os.path.exists(TRAIN_DATA_PATH) or not os.path.exists(TEST_DATA_PATH):
+            print("Erreur: Fichiers de données introuvables.")
+            return pd.DataFrame()
+            
+        df_train = pd.read_csv(TRAIN_DATA_PATH)
+        df_test = pd.read_csv(TEST_DATA_PATH)
+        df = pd.concat([df_train, df_test], axis=0, ignore_index=True)
+        # Remove duplicate columns if any
+        df = df.loc[:, ~df.columns.duplicated()]
+        return df
+    except Exception as e:
+        print(f"Erreur chargement données EDA: {e}")
+        return pd.DataFrame()
+
+
+# --- CALLBACKS EDA INTERACTIF ---
+@app.callback(
+    [Output("analysis-scatter-graph", "figure"),
+     Output("analysis-boxplot-graph", "figure"),
+     Output("analysis-stats-table", "children")],
+    [Input("scatter-x", "value"), Input("scatter-y", "value"),
+     Input("boxplot-x", "value"), Input("boxplot-y", "value")]
+)
+def update_eda_graphs(sx, sy, bx, by):
+    df = load_full_data()
+    if df.empty: return go.Figure(), go.Figure(), "Erreur chargement"
+
+    # 1. Scatter Plot
+    fig_scatter = px.scatter(
+        df, x=sx, y=sy, 
+        color="BuildingType" if "BuildingType" in df.columns else None,
+        hover_data=['Neighborhood'] if "Neighborhood" in df.columns else None,
+        title=f"Relation : {sx} vs {sy}",
+        template="plotly_dark",
+        opacity=0.7
+    )
+    fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+
+    # 2. Boxplot
+    fig_box = px.box(
+        df, x=bx, y=by, 
+        color=bx,
+        title=f"Distribution : {by} par {bx}",
+        template="plotly_dark"
+    )
+    fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
+
+    # 3. Stats Table
+    stats = df[[sy, by]].describe().reset_index()
+    stats_table = dash_table.DataTable(
+        data=stats.to_dict('records'),
+        columns=[{"name": i, "id": i} for i in stats.columns],
+        style_header={'backgroundColor': '#1e293b', 'color': 'white', 'fontWeight': 'bold'},
+        style_cell={'backgroundColor': 'rgba(255,255,255,0.05)', 'color': '#e2e8f0', 'textAlign': 'left'},
+    )
+
+    return fig_scatter, fig_box, stats_table
+
 # --- PAGE 0.2: MODÉLISATION ---
-def layout_modeling(lang):
+def _layout_modeling_impl(lang):
     t = TRANSLATIONS[lang]
     
-    # Données exhaustives issues des notebooks d'optimisation
-    model_comparison = [
-        {"Model": "M2 - Random Forest", "Détail": "Optimisé (RandomSearch)", "Algo": "Random Forest", "R2": "0.9849", "RMSE": "47.45", "MAPE": "7.35%"},
-        {"Model": "M1 - Gradient Boosting", "Détail": "Optimisé (RandomSearch)", "Algo": "Gradient Boosting", "R2": "0.9846", "RMSE": "52.09", "MAPE": "9.05%"},
-        {"Model": "M2 - Gradient Boosting", "Détail": "Comparaison", "Algo": "Gradient Boosting", "R2": "0.9844", "RMSE": "48.93", "MAPE": "7.58%"},
-        {"Model": "M1 - Random Forest", "Détail": "Comparaison", "Algo": "Random Forest", "R2": "0.9840", "RMSE": "49.94", "MAPE": "7.70%"},
-        {"Model": "Modèle 1 (Baseline)", "Détail": "Sans Energy Star", "Algo": "Gradient Boosting", "R2": "0.9846", "RMSE": "52.09", "MAPE": "9.05%"},
-    ]
+    # Chargement des résultats complets (CSV converti en liste de dicts pour l'affichage)
+    # Structure attendue du CSV : Modèle, R² Test, RMSE Log, RMSE Original, MAPE, CV R² Mean, Overfitting
+    models_data = []
+    best_model = {}
+    
+    try:
+        csv_path = os.path.join(RESULTS_DIR, 'metrics_comparison.json') # C'est en fait le CSV copié
+        if os.path.exists(csv_path):
+            df_res = pd.read_csv(csv_path)
+            # Trier par R2 décroissant
+            df_res = df_res.sort_values(by="R² Test", ascending=False)
+            models_data = df_res.to_dict('records')
+            if models_data:
+                best_model = models_data[0]
+        else:
+            # Fallback
+            models_data = [
+                {"Modèle": "M1 - GB (Optimisé)", "R² Test": 0.98, "RMSE Original": 52.09, "MAPE": 0.09},
+                {"Modèle": "M2 - RF (Optimisé)", "R² Test": 0.99, "RMSE Original": 47.45, "MAPE": 0.07}
+            ]
+            best_model = models_data[1]
+    except Exception as e:
+        print(f"Erreur chargement modèle : {e}")
 
+    # --- 1. BANDEAU MEILLEUR MODÈLE ---
+    best_model_banner = dbc.Alert([
+        html.H4(f"{t['mod_best_title']} {best_model.get('Modèle', 'N/A')}", className="alert-heading"),
+        html.P(f"{t['mod_best_perf']} {best_model.get('R² Test', 0):.4f} {t['mod_best_mape']} {float(best_model.get('MAPE', 0))*100:.1f}%. {t['mod_best_desc']}"),
+        html.Hr(),
+        html.P(t['mod_best_usage'], className="mb-0 small")
+    ], color="success", className="mb-5 glass-card", style={"borderLeft": "5px solid #00fa9a"})
+
+    # --- 2. TABLEAU COMPARATIF EXHAUSTIF ---
     table_header = html.Thead(html.Tr([
-        html.Th("Modèle" if lang=='FR' else "Model"), 
-        html.Th("Configuration"), 
-        html.Th("Algorithme" if lang=='FR' else "Algorithm"), 
-        html.Th("R²"), 
-        html.Th("RMSE"), 
-        html.Th("MAPE")
+        html.Th(t['mod_table_model']), 
+        html.Th(t['mod_table_r2']), 
+        html.Th(t['mod_table_rmse']), 
+        html.Th(t['mod_table_mape']),
+        html.Th(t['mod_table_cv'])
     ]))
     
-    table_body = html.Tbody([
-        html.Tr([
-            html.Td(html.Strong(m["Model"])), 
-            html.Td(m["Détail"]), 
-            html.Td(m["Algo"]), 
-            html.Td(m["R2"]), 
-            html.Td(m["RMSE"]), 
-            html.Td(m["MAPE"])
-        ], style={"backgroundColor": "rgba(0,250,154,0.15)" if "M2" in m["Model"] else "transparent", "borderLeft": "4px solid #00fa9a" if "M2" in m["Model"] else "none"})
-        for m in model_comparison
-    ])
+    table_rows = []
+    for m in models_data:
+        # Style conditionnel pour le meilleur modèle
+        is_best = m == best_model
+        style = {"fontWeight": "bold", "color": "#00fa9a", "backgroundColor": "rgba(0,250,154,0.1)"} if is_best else {}
+        
+        table_rows.append(html.Tr([
+            html.Td(m.get("Modèle")),
+            html.Td(f"{m.get('R² Test', 0):.4f}"),
+            html.Td(f"{m.get('RMSE Original', 0):.2f}"),
+            html.Td(f"{m.get('MAPE', 0):.4f}"),
+            html.Td(f"{m.get('CV R² Mean', 0):.4f}")
+        ], style=style))
 
+    full_table = dbc.Table([table_header, html.Tbody(table_rows)], bordered=True, color="dark", hover=True, responsive=True, className="mb-4")
+
+    # --- 3. RADAR CHART COMPARATIF (M1 vs M2) ---
+    # On prend le meilleur de M1 et le meilleur de M2 pour le radar
+    m1_best = next((m for m in models_data if "M1" in m.get("Modèle", "")), None)
+    m2_best = next((m for m in models_data if "M2" in m.get("Modèle", "")), None)
+    
+    fig_radar = go.Figure()
+    
+    if m1_best and m2_best:
+        categories = [t['mod_radar_precision'], t['mod_radar_stability'], t['mod_radar_generalization']]
+        
+        # Normalisation simple pour le radar (tout ramener vers 1)
+        # R2 est déjà < 1. MAPE doit être inversé (plus petit est mieux)
+        
+        def safe_get(d, k): return float(d.get(k, 0))
+        
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[safe_get(m1_best, 'R² Test'), 1 - safe_get(m1_best, 'MAPE'), safe_get(m1_best, 'CV R² Mean')],
+            theta=categories,
+            fill='toself',
+            name=m1_best['Modèle']
+        ))
+        
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[safe_get(m2_best, 'R² Test'), 1 - safe_get(m2_best, 'MAPE'), safe_get(m2_best, 'CV R² Mean')],
+            theta=categories,
+            fill='toself',
+            name=m2_best['Modèle']
+        ))
+
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 1])
+            ),
+            showlegend=True,
+            template="plotly_dark",
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            title=t['mod_radar_chart_title']
+        )
+    
+    
+    # --- SECTIONS DU RAPPORT ---
     sections = [
         {
             "id": "model-comparison",
-            "title": "📊 Comparaison des Performances",
-            "desc": "Analyse comparative des modèles optimisés. Le Gradient Boosting sur le Modèle 2 (avec Energy Star) obtient le meilleur R².",
-            "content": dbc.Card([
-                dbc.Table([table_header, table_body], bordered=False, hover=True, responsive=True, className="mb-0 text-light")
-            ], className="glass-card p-3 mb-4"),
+            "title": t['mod_compare_title'],
+            "desc": t['mod_compare_desc'],
+            "content": html.Div([
+                full_table,
+                html.P(t['mod_table_note'], className="text-muted small")
+            ]),
             "images": [
-                {"src": "/assets/model_figures/comparison_m1_m2.png", "title": "Évolution des métriques (M1 vs M2)", "width": 12}
+                {"src": "/assets/model_figures/final_comparison_optimized.png", "title": t['mod_img_comparison'], "width": 12},
+                {"src": "/assets/model_figures/comparison_m1_m2.png", "title": t['mod_img_m1_m2'], "width": 12}
             ]
         },
         {
-            "id": "baseline-results",
-            "title": "📉 Modèles de Base (Benchmarks)",
-            "desc": "Performances initiales des différents algorithmes testés avant optimisation.",
-            "images": [
-                {"src": "/assets/model_figures/baseline_m1.png", "title": "Benchmark - Modèle 1 (Sans Energy Star)", "width": 12},
-                {"src": "/assets/model_figures/baseline_m2.png", "title": "Benchmark - Modèle 2 (Avec Energy Star)", "width": 12}
-            ]
+            "id": "radar-comparison",
+            "title": t['mod_radar_title'],
+            "desc": t['mod_radar_desc'],
+            "content": dcc.Graph(figure=fig_radar)
         },
         {
             "id": "feat-importance",
-            "title": "🎯 Importance des Variables",
-            "desc": "Quels facteurs influencent le plus les émissions ? La surface totale (GFA) et le type d'usage sont prédominants.",
+            "title": t['mod_feat_title'],
+            "desc": t['mod_feat_desc'],
             "images": [
-                {"src": "/assets/model_figures/feature_importance_m1.png", "title": "Importance des Features - Modèle 1", "width": 12},
-                {"src": "/assets/model_figures/feature_importance_m2.png", "title": "Importance des Features - Modèle 2", "width": 12}
+                {"src": "/assets/model_figures/feature_importance_m1.png", "title": t['mod_img_feat_m1'], "width": 12},
+                {"src": "/assets/model_figures/feature_importance_m2.png", "title": t['mod_img_feat_m2'], "width": 12}
             ]
         },
         {
             "id": "pred-analysis",
-            "title": "📈 Analyse des Prédictions et Résidus",
-            "desc": "Validation visuelle de la qualité des prédictions (valeurs réelles vs prédites) et analyse des erreurs (résidus).",
+            "title": t['mod_resid_title'],
+            "desc": t['mod_resid_desc'],
             "images": [
-                {"src": "/assets/model_figures/predictions_m1.png", "title": "Prédictions vs Réalité - Modèle 1", "width": 12},
-                {"src": "/assets/model_figures/residuals_m1.png", "title": "Distribution des Résidus - Modèle 1", "width": 12},
-                {"src": "/assets/model_figures/predictions_m2.png", "title": "Prédictions vs Réalité - Modèle 2", "width": 12},
-                {"src": "/assets/model_figures/residuals_m2.png", "title": "Distribution des Résidus - Modèle 2", "width": 12}
+                {"src": "/assets/model_figures/predictions_m2.png", "title": t['mod_img_pred'], "width": 12},
+                {"src": "/assets/model_figures/residuals_m2.png", "title": t['mod_img_resid'], "width": 12}
             ]
         }
     ]
 
     return html.Div([
-        html.H1([html.I(className="fas fa-microchip me-3"), t['nav_modeling']], className="mb-4 text-center"),
-        html.P("Cette section présente l'intégralité des résultats de la phase de modélisation, des benchmarks initiaux aux modèles optimisés finaux.", className="text-center text-muted mb-5"),
+        html.H1([html.I(className="fas fa-microchip me-3"), t['nav_modeling']], className="mb-4 text-center gradient-text"),
+        best_model_banner,
         build_gallery_ui(None, sections, lang)
     ], style={"paddingBottom": "100px"})
+
+
+def layout_modeling(lang):
+    try:
+        return _layout_modeling_impl(lang)
+    except Exception as e:
+        import traceback
+        return html.Div([
+            html.H3("⚠️ Erreur de Chargement (Modélisation)"),
+            html.Hr(),
+            dbc.Alert(str(e), color="danger"),
+            html.Pre(traceback.format_exc(), style={"backgroundColor": "#333", "color": "#f88", "padding": "20px", "borderRadius": "5px"})
+        ], className="container mt-5")
 
 
 def build_gallery_ui(title, sections, lang):
@@ -508,49 +823,70 @@ def build_gallery_ui(title, sections, lang):
 # --- PAGE 3: WHAT-IF SIMULATOR (DYNAMIC) ---
 def layout_sim(lang):
     t = TRANSLATIONS[lang]
+    
+    sim_options = [
+        {'label': "✨ Relampage LED (Score +8)", 'value': 'led', 'disabled': False},
+        {'label': "🌡️ Pompe à Chaleur (Score +15)", 'value': 'hvac', 'disabled': False},
+        {'label': "🪟 Isolation Fenêtres (Score +10)", 'value': 'windows', 'disabled': False},
+        {'label': "☀️ Panneaux Solaires (Score +12)", 'value': 'solar', 'disabled': False},
+        {'label': "📉 Gestion Technique GTB (Score +5)", 'value': 'gtb', 'disabled': False}
+    ]
+
     return html.Div([
-        html.H1([html.I(className="fas fa-tools me-3"), t['nav_sim']], className="mb-4"),
+        html.H1([html.I(className="fas fa-tools me-3"), t['nav_sim']], className="mb-4 gradient-text"),
         dbc.Row([
             dbc.Col([
                 dbc.Card([
-                    html.H4("Scénario d'Amélioration" if lang=='FR' else "Improvement Scenario"),
-                    html.P("Simulez l'impact d'une amélioration de l'isolation ou des équipements." if lang=='FR' else "Simulate impact of insulation or equipment upgrades.", className="text-muted"),
-                    html.Label("Gain score Energy Star (+)" if lang=='FR' else "Energy Star score boost (+)", className="mt-3"),
-                    dcc.Slider(id="sim-es-boost", min=0, max=50, step=5, value=20, marks={i: f"+{i}" for i in range(0, 51, 10)}, className="mb-2"),
-                    html.Div([
-                        html.Div(id="sim-boost-display", style={
-                            "backgroundColor": "rgba(0,250,154,0.1)", 
-                            "border": "1px solid #00fa9a", 
-                            "borderRadius": "5px", 
-                            "padding": "5px", 
-                            "color": "#00fa9a", 
-                            "fontWeight": "bold", 
-                            "fontSize": "1.2rem",
-                            "display": "inline-block",
-                            "minWidth": "100px"
-                        }),
-                    ], className="text-center mb-4"),
-                ], className="glass-card")
-            ], width=5),
+                    html.H4(t['sim_renov_menu']),
+                    html.P(t['sim_select_upgrades'], className="text-muted"),
+                    html.Hr(),
+                    dbc.Checklist(
+                        options=sim_options,
+                        value=[],
+                        id="sim-renov-check",
+                        switch=True,
+                        className="mb-3",
+                        style={"fontSize": "1.1rem"}
+                    ),
+                    html.Hr(),
+                    html.Label(t['sim_transition'], className="fw-bold mb-2"),
+                    dbc.Switch(
+                        id="sim-fuel-switch",
+                        label=t['sim_elec_switch'],
+                        value=False,
+                        className="mb-3 text-warning"
+                    ),
+                    html.Div(id="sim-score-boost-badge", className="text-center mt-3")
+                ], className="glass-card p-3")
+            ], width=4),
             dbc.Col([
                 dbc.Card([
-                    html.H4("Économies Projetées" if lang=='FR' else "Projected Savings", className="text-center"),
+                    html.H4(t['sim_savings'], className="text-center"),
                     html.Div(id="sim-savings-summary", className="text-center mb-3", style={"fontSize": "1.3rem"}),
-                    dcc.Graph(id="sim-comparison-graph")
-                ], className="glass-card")
-            ], width=7),
+                    dcc.Loading(dcc.Graph(id="sim-comparison-graph", style={"height": "300px"}), type="circle", color="#00fa9a"),
+                    html.Hr(),
+                    html.H5(t['sim_sensibility'], className="text-center mt-2"),
+                    dcc.Loading(dcc.Graph(id="sim-sensitivity-graph", style={"height": "250px"}), type="circle", color="#3b82f6")
+                ], className="glass-card p-3")
+            ], width=8),
         ])
     ])
 
 @app.callback(
-    [Output("sim-comparison-graph", "figure"), Output("sim-savings-summary", "children")],
-    [Input("sim-es-boost", "value"), Input("lang-switch", "value")],
+    [Output("sim-comparison-graph", "figure"), Output("sim-sensitivity-graph", "figure"), Output("sim-savings-summary", "children")],
+    [Input("sim-renov-check", "value"), Input("sim-fuel-switch", "value"), Input("lang-switch", "value")],
     [State("stored-building-features", "data")]
 )
-def update_sim_graph(boost, lang, stored_data):
+def update_sim_graph(selected_actions, fuel_switch, lang, stored_data):
+    print(f"DEBUG: Sim update. Actions={selected_actions}, Switch={fuel_switch}")
     lang = lang or 'FR'
     t = TRANSLATIONS[lang]
+    selected_actions = selected_actions or []
     
+    # 1. Calcul du Bonus Score
+    scores_map = {'led': 8, 'hvac': 15, 'windows': 10, 'solar': 12, 'gtb': 5}
+    boost = sum(scores_map.get(a, 0) for a in selected_actions)
+
     base_features = stored_data or {'PropertyGFATotal': 50000, 'YearBuilt': 1980, 'PrimaryPropertyType': 'Office', 'ENERGYSTARScore': 50}
     
     base_es = float(base_features.get('ENERGYSTARScore', 0))
@@ -559,42 +895,90 @@ def update_sim_graph(boost, lang, stored_data):
     final_es = min(base_es + boost, 100)
     is_capped = (base_es + boost) > 100
     
-    # Val base
+    # 2. Prédiction de Base
     val_base, _ = predict_co2(base_features)
     
-    # Val improved
+    # 3. Prédiction Améliorée (Rénovation + Fuel Switch)
     improved_features = base_features.copy()
     improved_features['ENERGYSTARScore'] = final_es
+    
+    if fuel_switch:
+        improved_features['Has_Gas'] = False
+        improved_features['Has_Steam'] = False
+        # Le Fuel Switch peut aussi avoir un impact technologique bonus
+        
     val_improved, _ = predict_co2(improved_features)
     
-    if boost > 30:
-        val_improved *= 0.95 
+    # Bonus technologique supplémentaire (hors score ES)
+    tech_bonus = 0.95 if 'hvac' in selected_actions else 1.0
+    val_improved *= tech_bonus
+    
+    # Si tout électrique, on réduit drastiquement les émissions (hypothèse locale: élec décarbonée)
+    if fuel_switch:
+        val_improved *= 0.6  # Hypothèse Seattle Hydro
 
     savings = val_base - val_improved
     percent = (savings / val_base) * 100 if val_base > 0 else 0
     
-    labels = ['Avant', 'Après'] if lang == 'FR' else ['Before', 'After']
-    
-    fig = go.Figure(data=[
+    # 4. Graphique Comparaison (Bar Chart)
+    labels = [t['sim_before'], t['sim_after']]
+    fig_comp = go.Figure(data=[
         go.Bar(
             x=labels, 
             y=[val_base, val_improved],
-            marker_color=['#888', '#00fa9a'],
+            marker_color=['#64748b', '#00fa9a'],
             text=[f"{val_base:.1f} T", f"{val_improved:.1f} T"],
             textposition='auto',
         )
     ])
+    fig_comp.update_layout(
+        template="plotly_dark", 
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)', 
+        yaxis_title=t['tonnes_co2_year'],
+        title=f"{t['sim_impact_title']} ({t['sim_score']} {final_es:.0f})",
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
     
-    fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis_title="Tonnes CO2 / an")
+    # 5. Graphique Sensibilité (Curve)
+    # Calculer CO2 pour ES allant de 10 à 100
+    curve_x = list(range(10, 101, 10))
+    curve_y = []
     
+    temp_feats = improved_features.copy() # On garde le fuel switch actif pour la courbe
+    for s in curve_x:
+        temp_feats['ENERGYSTARScore'] = s
+        p, _ = predict_co2(temp_feats)
+        if fuel_switch: p *= 0.6 # Appliquer le facteur Fuel Switch
+        curve_y.append(p)
+        
+    fig_sens = go.Figure()
+    fig_sens.add_trace(go.Scatter(x=curve_x, y=curve_y, mode='lines+markers', line=dict(color='#3b82f6', width=3), name=t['sim_potential']))
+    
+    # Marquer le point actuel et amélioré
+    fig_sens.add_trace(go.Scatter(x=[base_es], y=[val_base], mode='markers', marker=dict(color='#ef4444', size=12), name=t['sim_current']))
+    fig_sens.add_trace(go.Scatter(x=[final_es], y=[val_improved], mode='markers', marker=dict(color='#00fa9a', size=12), name=t['sim_projected']))
+    
+    fig_sens.update_layout(
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis_title="Score Energy Star",
+        yaxis_title=t['2050_emissions'],
+        margin=dict(l=20, r=20, t=30, b=20),
+        showlegend=True
+    )
+
+    # Résumé Texte
     summary_text = [
-        html.Span(f"- {savings:.1f} T ", style={"color": "#00fa9a", "fontWeight": "bold"}),
-        html.Span(f"({percent:.1f}%)", style={"color": "#00fa9a", "fontSize": "0.9rem"}),
+        html.Span(f"- {savings:.1f} T ", style={"color": "#00fa9a", "fontWeight": "bold", "fontSize": "1.5rem"}),
+        html.Span(f"({percent:.1f}%)", style={"color": "#00fa9a", "fontSize": "1rem"}),
+        html.Div(f"{t['sim_score']}: +{boost} pts | {t['sim_all_electric'] if fuel_switch else t['sim_standard_mix']}", className="text-muted small mt-1")
     ]
     if is_capped:
-        summary_text.append(dbc.Alert("⚠️ Score max 100 atteint.", color="warning", className="mt-2 py-1 small"))
+        summary_text.append(dbc.Alert(t['sim_score_cap'], color="warning", className="mt-2 py-1 small"))
     
-    return fig, summary_text
+    return fig_comp, fig_sens, summary_text
        
 def layout_star(lang):
     return html.Div(id="dynamic-star-container")
@@ -609,81 +993,100 @@ def update_star_page(lang, pathname, features, prediction):
     lang = lang or 'FR'
     t = TRANSLATIONS[lang]
     
-    # Si pas de prédiction, afficher message d'accueil
+    # 1. State Check
     if not prediction or not features:
         return html.Div([
             html.Div([
                 html.I(className="fas fa-star fa-4x mb-4", style={"color": "#00fa9a"}),
                 html.H2(t['nav_star']),
-                html.P("Veuillez d'abord effectuer une prédiction pour analyser l'impact Energy Star.", className="text-muted"),
+                html.P(t['please_predict_first'], className="text-muted"),
                 dbc.Button(t['nav_predict'], href="/predict", color="success", className="mt-3")
             ], className="text-center py-5 glass-card")
         ], style={"maxWidth": "800px", "margin": "0 auto"})
 
-    # Simulation dynamique
-    metrics = get_seattle_metrics()
-    current_es = features.get('ENERGYSTARScore', 60)
+    # 2. Metrics & Comparison
     current_val = float(prediction)
+    gfa = features.get('PropertyGFATotal', 50000)
+    b_type = features.get('PrimaryPropertyType', 'Office')
     
-    # Scénarios
-    scenarios = [25, 50, 75, 90, 100]
-    simulated_emissions = []
-    
-    for score in scenarios:
-        f_copy = features.copy()
-        f_copy['ENERGYSTARScore'] = score
-        pred, _ = predict_co2(f_copy)
-        simulated_emissions.append(pred)
-        
-    # Création graphique
-    fig = go.Figure(data=[
-        go.Bar(
-            x=[f"Score {s}" for s in scenarios],
-            y=simulated_emissions,
-            marker_color=['#ef4444', '#f59e0b', '#fcd34d', '#10b981', '#059669'],
-            text=[f"{v:.1f} T" for v in simulated_emissions],
-            textposition='auto'
-        )
-    ])
-    
-    fig.add_shape(type="line", x0=-0.5, x1=4.5, y0=current_val, y1=current_val,
-                  line=dict(color="white", width=2, dash="dash"))
-    fig.add_annotation(x=4, y=current_val, text="Votre Bâtiment", showarrow=False, yshift=10)
+    # Median Reference (approximate based on type)
+    base_eui = BUILDING_TYPE_BENCHMARKS.get(b_type, 100)
+    median_emissions = (gfa * base_eui) / 1000 * 0.05
+    if median_emissions < 10: median_emissions = current_val * 1.1
 
-    fig.update_layout(
-        template="plotly_dark", 
-        paper_bgcolor='rgba(0,0,0,0)', 
-        plot_bgcolor='rgba(0,0,0,0)', 
-        height=400,
-        title="Impact du Score Energy Star sur vos Émissions",
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
+    ratio = current_val / median_emissions
+    
+    # Stars Logic (Inverse: Lower ratio is better)
+    stars = 5 if ratio < 0.6 else 4 if ratio < 0.8 else 3 if ratio < 1.0 else 2 if ratio < 1.3 else 1
+    
+    star_icons = []
+    for i in range(5):
+        color = "#ffd700" if i < stars else "#4b5563"
+        star_icons.append(html.I(className="fas fa-star fa-2x mx-1", style={"color": color}))
+    
+    # Gauge Chart
+    fig_gauge = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = current_val,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "Émissions vs Médiane", 'font': {'color': 'white'}},
+        delta = {'reference': median_emissions, 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#00fa9a"}},
+        gauge = {
+            'axis': {'range': [0, median_emissions * 2], 'tickwidth': 1, 'tickcolor': "white"},
+            'bar': {'color': "#3b82f6"},
+            'bgcolor': "rgba(0,0,0,0)",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, median_emissions * 0.6], 'color': 'rgba(0, 250, 154, 0.3)'},  # Green Zone (5 stars)
+                {'range': [median_emissions * 0.6, median_emissions], 'color': 'rgba(255, 215, 0, 0.3)'}, # Yellow Zone
+                {'range': [median_emissions, median_emissions * 2], 'color': 'rgba(239, 68, 68, 0.3)'}   # Red Zone
+            ],
+            'threshold': {
+                'line': {'color': "white", 'width': 4},
+                'thickness': 0.75,
+                'value': median_emissions
+            }
+        }
+    ))
+    fig_gauge.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', font={'color': "white"})
 
-    r2_gain = ((metrics['with_es']['R2'] / metrics['without_es']['R2']) - 1) * 100
-    mae_reduction = ((1 - metrics['with_es']['MAE'] / metrics['without_es']['MAE'])) * 100
+    # Advice
+    next_level_target = 0
+    if stars < 5:
+        target_ratios = {1: 1.3, 2: 1.0, 3: 0.8, 4: 0.6}
+        next_r = target_ratios.get(stars, 0.6)
+        next_level_target = median_emissions * next_r
+        reduction_needed = current_val - next_level_target
+        advice_text = f"🎯 {t['star_advice_next']} : {t['star_reduce_by']} {reduction_needed:.1f} T {t['star_to_gain_star']}"
+    else:
+        advice_text = t['star_leader_msg']
 
     return html.Div([
-        html.H1([html.I(className="fas fa-star me-3"), t['nav_star']], className="mb-4 text-center"),
+        html.H1([html.I(className="fas fa-star me-3"), t['nav_star']], className="mb-4 text-center gradient-text"),
         
-        # Row 1: Metrics
         dbc.Row([
-            dbc.Col(dbc.Card([
-                html.H6("Gain Précision Modèle"),
-                html.H2(f"+{r2_gain:.2f}%", style={"color": "#00fa9a"})
-            ], className="glass-card text-center p-3"), width=6),
-            dbc.Col(dbc.Card([
-                html.H6("Sensibilité Energy Star"),
-                html.H2("Haute", style={"color": "#ffd700"})
-            ], className="glass-card text-center p-3"), width=6),
-        ], className="mb-4"),
-
-        # Row 2: Simulation Graph
-        dbc.Row([
-            dbc.Col(dbc.Card([
-                html.H5("Simulation Personnalisée"),
-                html.P(f"Projection pour votre bâtiment ({features.get('PropertyGFATotal')} sqft, {features.get('PrimaryPropertyType')})", className="text-muted small"),
-                dcc.Graph(figure=fig)
-            ], className="glass-card p-3"), width=12),
+            dbc.Col([
+                dbc.Card([
+                    html.H5(t['star_rank_title']),
+                    html.Div(star_icons, className="text-center my-4"),
+                    html.H2(f"{stars}/5 {t['stars']}", className="text-center mb-3", style={"color": "#ffd700"}),
+                    html.P([
+                        t['star_building_emits'], " ", 
+                        html.Strong(f"{current_val:.1f} T"), 
+                        " ", t['star_per_year']
+                    ], className="text-center"),
+                    dbc.Alert(advice_text, color="info" if stars < 5 else "success", className="mt-3")
+                ], className="glass-card p-4 h-100")
+            ], width=5),
+            
+            dbc.Col([
+                dbc.Card([
+                    html.H5(t['star_gauge_title']),
+                    dcc.Graph(figure=fig_gauge, style={"height": "300px"}),
+                    html.P(f"{t['star_median_line']} ({median_emissions:.1f} T) {t['star_for_type']} {b_type}.", className="text-center text-muted small")
+                ], className="glass-card p-3 h-100")
+            ], width=7)
         ])
     ])
 
@@ -701,62 +1104,93 @@ def update_benchmark_page(lang, pathname, stored_data, last_pred, baseline_val):
     lang = lang or 'FR'
     t = TRANSLATIONS[lang]
     
-    if not last_pred:
+    if not last_pred or not stored_data:
         return html.Div([
             html.Div([
                 html.I(className="fas fa-chart-line fa-4x mb-4", style={"color": "#00fa9a"}),
                 html.H2(t['nav_2050']),
-                html.P("Veuillez d'abord effectuer une prédiction.", className="text-muted"),
+                html.P(t['please_predict_first'], className="text-muted"),
                 dbc.Button(t['nav_predict'], href="/predict", color="success", className="mt-3")
             ], className="text-center py-5 glass-card")
         ], style={"maxWidth": "800px", "margin": "0 auto"})
 
-    try:
-        curr_val = float(last_pred)
-        base_val = float(baseline_val) if baseline_val else curr_val
-        b_type = stored_data.get('PrimaryPropertyType', 'Office')
-        median_ref = BUILDING_TYPE_BENCHMARKS.get(b_type, 50.0)
-        
-        years = [2016, 2030, 2040, 2050]
-        targets = [median_ref, median_ref * 0.60, median_ref * 0.30, 0]
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=years, y=targets, name="Cible Seattle", line=dict(color='#00fa9a', dash='dash', width=3)))
-        fig.add_trace(go.Scatter(x=[2026], y=[curr_val], name="Bâtiment Actuel", marker=dict(color='#ffd700', size=20, symbol='star')))
-        
-        fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                          yaxis_title="Tonnes CO2 / an", margin=dict(l=20, r=20, t=20, b=20))
+    # --- CALCULS STRATEGIQUES ---
+    curr_val = float(last_pred)
+    gfa = stored_data.get('PropertyGFATotal', 50000)
+    b_type = stored_data.get('PrimaryPropertyType', 'Office')
+    
+    # Cibles (Hypothèse Seattle Climate Commitment)
+    base_target = BUILDING_TYPE_BENCHMARKS.get(b_type, 100) * (gfa / 1000 * 0.05)
+    
+    targets = {
+        2024: curr_val,   # Départ
+        2030: base_target * 0.7, # -30% vs standard
+        2040: base_target * 0.4, # -60% vs standard
+        2050: 0             # Net Zero
+    }
+    
+    years = [2024, 2030, 2040, 2050]
+    reg_path = [targets[y] for y in years]
+    bau_path = [curr_val for _ in years] # Business As Usual (si on ne fait rien)
+    
+    # Calcul Excess (optionnel, pour info interne ou futur usage)
+    excess_total = 0
+    for i in range(len(years)):
+        gap = max(0, bau_path[i] - reg_path[i])
+        excess_total += gap
+    
+    status_icon = "fa-check-circle" if curr_val <= targets[2030] else "fa-exclamation-triangle"
+    status_color = "#00fa9a" if curr_val <= targets[2030] else "#ef4444"
+    status_text = t['2050_compliant'] if curr_val <= targets[2030] else t['2050_non_compliant']
 
-        target_2030 = median_ref * 0.60
-        
-        deadline = "OPTIMAL" if curr_val <= target_2030 else "VIGILANCE"
-        status_color = "#00fa9a" if curr_val <= target_2030 else "#ff4d4d"
-        status_icon = "fa-check-circle" if curr_val <= target_2030 else "fa-exclamation-triangle"
+    # --- GRAPHIQUE TRAJECTOIRE ---
+    fig = go.Figure()
+    
+    # Zone de Risque (Entre BAU et Target)
+    fig.add_trace(go.Scatter(
+        x=years, y=bau_path, mode='lines', 
+        name=t['2050_bau'], line=dict(color='#ef4444', width=2, dash='dot')
+    ))
+    fig.add_trace(go.Scatter(
+        x=years, y=reg_path, mode='lines+markers', 
+        name=t['2050_target_reg'], line=dict(color='#00fa9a', width=3),
+        fill='tonexty', fillcolor='rgba(239, 68, 68, 0.2)' # Fill to previous trace (BAU)
+    ))
+    
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)',
+        title=t['2050_traj_title'],
+        xaxis_title=t['2050_year'],
+        yaxis_title=t['2050_emissions'],
+        legend=dict(orientation="h", y=1.1)
+    )
 
-        return html.Div([
-            html.H2([html.I(className="fas fa-check-circle me-3"), t['nav_2050']], className="mb-4 text-center"),
-            dbc.Row([
-                dbc.Col(dbc.Card([
+    return html.Div([
+        html.H1([html.I(className="fas fa-chart-line me-3"), t['nav_2050']], className="mb-4 text-center"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    html.H5(t['2050_statut']),
                     html.Div([
-                        html.H5([html.I(className="fas fa-chart-line me-2"), f"Trajectoire : {b_type}"]),
-                        dcc.Graph(figure=fig, config={'displayModeBar': False})
-                    ], className="p-3")
-                ], className="glass-card"), width=8),
-                dbc.Col([
-                    dbc.Card([
-                         html.H4("Statut 2030", className="text-center mt-3", style={"color": "#fff"}),
-                         html.Div([
-                            html.I(className=f"fas {status_icon} fa-4x", style={"color": status_color, "marginBottom": "15px"}),
-                            html.H3(deadline, style={"color": status_color, "fontWeight": "bold"}),
-                            html.Hr(),
-                            html.Div(f"Gap : {max(0, curr_val - target_2030):.1f} Tonnes", className="small mt-2 text-muted text-center")
-                        ], className="text-center p-3")
-                    ], className="glass-card mb-4")
-                ], width=4),
-            ])
+                        html.I(className=f"fas {status_icon} fa-4x mb-3", style={"color": status_color}),
+                        html.H2(status_text, style={"color": status_color}),
+                        html.P(f"{t['2050_current_vs_target']} ({curr_val:.1f} T) {t['2050_vs']} ({targets[2030]:.1f} T).", className="text-muted")
+                    ], className="text-center my-4")
+                ], className="glass-card p-4 h-100")
+            ], width=4),
+            
+            dbc.Col([
+                dbc.Card([
+                    html.H5(t['2050_traj_title']),
+                    html.P(t['2050_red_zone_desc'], className="text-muted small"),
+                    dcc.Graph(figure=fig, style={"height": "350px"})
+                ], className="glass-card p-3 h-100")
+            ], width=8),
         ])
-    except Exception as e:
-        return dbc.Alert(f"Erreur d'affichage du benchmark : {str(e)}", color="danger")
+    ])
 
 # --- GLOBAL CALLBACKS ---
 
@@ -764,10 +1198,11 @@ def update_benchmark_page(lang, pathname, stored_data, last_pred, baseline_val):
 def update_lang_nav(lang):
     return get_sidebar_content(lang or 'FR')
 
-@app.callback(Output("page-content", "children"), [Input("url", "pathname"), Input("lang-switch", "value")])
-def render_page_content(pathname, lang):
+@app.callback(Output("page-content", "children"), [Input("url", "pathname"), Input("lang-switch", "value"), Input("theme-store", "data")])
+def render_page_content(pathname, lang, theme):
     lang = lang or 'FR'
-    if pathname == "/": return layout_insights(lang)
+    theme = theme or 'dark'
+    if pathname == "/": return layout_insights(lang, theme)
     elif pathname == "/analysis": return layout_analysis(lang)
     elif pathname == "/modeling": return layout_modeling(lang)
     elif pathname == "/predict": return layout_predict(lang)
@@ -905,6 +1340,16 @@ def update_output(contents, n_clicks, filename, lang):
         total_co2 = df['CO2_Emissions_Predicted'].sum()
         max_co2 = df['CO2_Emissions_Predicted'].max()
         
+        # Graphs
+        fig_hist = px.histogram(df, x='CO2_Emissions_Predicted', nbins=20, title="Distribution des Émissions", template="plotly_dark", color_discrete_sequence=['#00fa9a'])
+        fig_hist.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+
+        fig_box = px.box(df, x='PrimaryPropertyType', y='CO2_Emissions_Predicted', title="Émissions par Type d'Usage", template="plotly_dark", color_discrete_sequence=['#3b82f6'])
+        fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        
+        fig_scatter = px.scatter(df, x='PropertyGFATotal', y='CO2_Emissions_Predicted', color='PrimaryPropertyType', title="Corrélation Surface vs CO2", template="plotly_dark")
+        fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+
         return html.Div([
             dbc.Alert([
                 html.H5("✅ Traitement par lot réussi !"),
@@ -919,14 +1364,48 @@ def update_output(contents, n_clicks, filename, lang):
                 dcc.Download(id="download-batch-csv-obj")
             ], color="success", className="glass-card"),
             
+            html.H5("Aperçu des Données", className="mt-4"),
             dash_table.DataTable(
+                id='batch-prediction-table',
                 data=df.head(10).to_dict('records'),
                 columns=[{"name": i, "id": i} for i in df.columns],
                 style_table={'overflowX': 'auto'},
-                style_header={'backgroundColor': '#1e293b', 'color': 'white', 'fontWeight': 'bold'},
-                style_cell={'backgroundColor': 'rgba(255,255,255,0.05)', 'color': '#e2e8f0', 'textAlign': 'left'},
+                style_header={
+                    'backgroundColor': '#1e293b', 
+                    'color': '#ff9800',  # Orange vif
+                    'fontWeight': 'bold',
+                    'border': '1px solid #475569',
+                    'fontSize': '14px'
+                },
+                style_cell={
+                    'backgroundColor': '#0f172a', 
+                    'color': '#ffd700',  # Jaune vif
+                    'textAlign': 'left',
+                    'border': '1px solid #334155',
+                    'padding': '10px',
+                    'minWidth': '100px',
+                    'fontSize': '13px'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'column_id': 'CO2_Emissions_Predicted'},
+                        'backgroundColor': '#1a3a2a',
+                        'color': '#00ff00',  # Vert vif
+                        'fontWeight': 'bold'
+                    }
+                ],
                 page_size=5
             ),
+            
+            html.H5("Analyse Visuelle du Portefeuille", className="mt-4 mb-3"),
+            dbc.Row([
+                dbc.Col(dcc.Graph(figure=fig_hist, style={"height": "300px"}), width=6),
+                dbc.Col(dcc.Graph(figure=fig_box, style={"height": "300px"}), width=6),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(figure=fig_scatter, style={"height": "400px"}), width=12),
+            ], className="mt-4"),
+
             # Stocker les résultats complets pour le téléchargement
             dcc.Store(id='batch-results-store', data=df.to_dict('records'))
         ])
@@ -1073,6 +1552,68 @@ def update_insights_map(selected_nbh, lang):
     )
     return fig_map
 
+@app.callback(
+    [Output("insights-bar-chart", "figure"), Output("insights-pie-chart", "figure")],
+    [Input("map-filter-nbh", "value")]
+)
+def update_insights_charts(selected_nbh):
+    df = load_full_data()
+    if df.empty: return go.Figure(), go.Figure()
+
+    # Filtre quartier
+    if selected_nbh:
+        # Filtrage insensible à la casse
+        selected_lower = [s.lower() for s in selected_nbh]
+        df = df[df['Neighborhood'].astype(str).str.lower().isin(selected_lower)]
+
+    # 1. Bar Chart: Emissions moyennes par type
+    if 'BuildingType' in df.columns and 'TotalGHGEmissions' in df.columns:
+        avg_emissions = df.groupby('BuildingType')['TotalGHGEmissions'].mean().reset_index()
+        avg_emissions = avg_emissions.sort_values('TotalGHGEmissions', ascending=True) # Top pollueurs en bas
+
+        fig_bar = px.bar(
+            avg_emissions, 
+            x='TotalGHGEmissions', 
+            y='BuildingType',
+            orientation='h',
+            color='BuildingType',
+            template="plotly_dark",
+            title=None
+        )
+        fig_bar.update_layout(
+            margin=dict(l=0, r=0, t=0, b=0),
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis_title="CO2 Moyen (T)",
+            yaxis_title=None,
+            showlegend=False
+        )
+    else:
+        fig_bar = go.Figure()
+
+    # 2. Pie Chart: Répartition
+    if 'BuildingType' in df.columns:
+        res = df['BuildingType'].value_counts().reset_index()
+        res.columns = ['BuildingType', 'Count']
+        
+        fig_pie = px.pie(
+            res, 
+            values='Count', 
+            names='BuildingType',
+            template="plotly_dark",
+            hole=0.4
+        )
+        fig_pie.update_layout(
+            margin=dict(l=0, r=0, t=0, b=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+        )
+    else:
+        fig_pie = go.Figure()
+
+    return fig_bar, fig_pie
+
 
 # --- SIDEBAR TOGGLE CALLBACK ---
 @app.callback(
@@ -1097,6 +1638,41 @@ def toggle_sidebar(n_clicks, is_open):
         # Sidebar cachée
         return {"zIndex": 5000, "transform": "translateX(-100%)", "transition": "transform 0.3s ease"}, {"marginLeft": "0", "transition": "margin-left 0.3s ease"}, False
 
+
+# --- THEME CALLBACK ---
+@app.callback(
+    [Output("theme-wrapper-div", "data-theme"), Output("theme-icon", "className"), Output("theme-store", "data")],
+    [Input("theme-switch", "n_clicks")],
+    [State("theme-store", "data")]
+)
+def toggle_theme(n_clicks, current_theme):
+    if n_clicks is None:
+        # Initial load: use stored or default dark
+        theme = current_theme or 'dark'
+        icon = "fas fa-sun" if theme == 'light' else "fas fa-moon"
+        return theme, icon, theme
+
+    new_theme = 'light' if current_theme == 'dark' else 'dark'
+    icon = "fas fa-sun" if new_theme == 'light' else "fas fa-moon"
+    return new_theme, icon, new_theme
+
+# --- VALIDATION CALLBACK ---
+@app.callback(
+    [Output("btn-predict", "disabled"), Output("es-error-msg", "children")],
+    [Input("in-es", "value")]
+)
+def validate_energy_star(score):
+    if score is None:
+        return False, ""
+    try:
+        val = float(score)
+        if val < 0 or val > 100:
+            return True, "⚠️ Le score doit être compris entre 0 et 100."
+    except:
+        return True, "valeur invalide"
+    
+    return False, ""
+    return False, ""
 
 if __name__ == "__main__":
     import os
