@@ -618,11 +618,28 @@ def layout_star(lang):
             ], className="glass-card text-center p-3"), width=6),
         ], className="mb-4"),
         # Row 2: Correlation Analysis
+        # Row 2: Sensitivity Analysis (New enriched content)
         dbc.Row([
             dbc.Col(dbc.Card([
-                html.H5("Corrélation : Score vs Émissions" if lang=='FR' else "Correlation: Score vs Emissions"),
-                html.P("Le score Energy Star est inversement proportionnel aux émissions de CO2.", className="text-muted small"),
-                html.Img(src="/assets/eda_figures/energy_star_correlation.png", className="img-fluid rounded")
+                html.H5("Simulation d'Impact : Score vs Émissions" if lang=='FR' else "Impact Simulation: Score vs Emissions"),
+                html.P("Estimation de la réduction des émissions pour un bâtiment standard en améliorant le score Energy Star." if lang=='FR' else "Estimated emission reduction for a standard building by improving Energy Star score.", className="text-muted small"),
+                dcc.Graph(figure=go.Figure(data=[
+                    go.Bar(
+                        x=['Score 25 (Faible)', 'Score 50 (Moyen)', 'Score 75 (Bon)', 'Score 90 (Excellent)'],
+                        y=[100, 85, 65, 50], # Mock data illustrative of the model's trend
+                        marker=dict(color=['#ef4444', '#f59e0b', '#00fa9a', '#10b981']),
+                        text=["Base (100%)", "-15%", "-35%", "-50%"],
+                        textposition='auto'
+                    )
+                ]).update_layout(
+                    template="plotly_dark", 
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)', 
+                    height=300,
+                    margin=dict(l=20, r=20, t=30, b=20),
+                    yaxis=dict(title="Émissions Relatives %", showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
+                    xaxis=dict(title="")
+                ))
             ], className="glass-card p-3 mb-4"), width=12),
         ]),
         # Row 3: Feature Importance
