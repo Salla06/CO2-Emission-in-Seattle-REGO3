@@ -168,7 +168,7 @@ def layout_insights(lang):
                     html.Div([
                         dcc.Dropdown(
                             id="map-filter-nbh",
-                            options=[{'label': n, 'value': n} for n in NEIGHBORHOODS],
+                            options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())],
                             multi=True,
                             placeholder="Choisir quartiers..." if lang=='FR' else "Choose neighborhoods...",
                             style={'width': '300px', 'backgroundColor': 'white', 'color': 'black'}
@@ -212,7 +212,7 @@ def layout_predict(lang):
                     dcc.Dropdown(id="in-type", options=[{'label': b, 'value': b} for b in BUILDING_TYPES], value='Office', className="mb-3", style={'color': '#333'}),
 
                     html.Label(t['input_nbh']),
-                    dcc.Dropdown(id="in-nbh", options=[{'label': n, 'value': n} for n in NEIGHBORHOODS], value='Downtown', className="mb-3", style={'color': '#333'}),
+                    dcc.Dropdown(id="in-nbh", options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())], value='Downtown', className="mb-3", style={'color': '#333'}),
                     
                     html.Label(t['input_sqft']),
                     dcc.Input(id="in-surface", type="number", value=50000, className="form-control mb-3"),
