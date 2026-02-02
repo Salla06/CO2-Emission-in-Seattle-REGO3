@@ -1,0 +1,29 @@
+{
+    "method": "GridSearchCV",
+    "model": "Gradient Boosting",
+    "dataset": "Mod\u00e8le 2",
+    "best_params": {
+        "model__learning_rate": 0.05,
+        "model__max_depth": 5,
+        "model__min_samples_split": 5,
+        "model__n_estimators": 200,
+        "model__subsample": 0.8
+    },
+    "cv_score": 0.9999942175880794,
+    "metrics": {
+        "model": "Gradient Boosting GridSearch M2",
+        "train_r2": 0.9999998596122737,
+        "test_r2": 0.9999951196331351,
+        "train_rmse_log": 0.0004983303108528694,
+        "test_rmse_log": 0.002844486316213315,
+        "train_mae_log": 0.0003727701390954668,
+        "test_mae_log": 0.0018616127316111767,
+        "train_rmse_original": 0.06829182865125866,
+        "test_rmse_original": 0.4984545892612259,
+        "train_mape": 0.03884563141558781,
+        "test_mape": 0.19485748769082023,
+        "cv_r2_mean": 0.9999942175880794,
+        "cv_r2_std": 9.742432509855092e-07,
+        "overfitting_r2": 4.739979138523864e-06
+    }
+}
