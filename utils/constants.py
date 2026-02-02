@@ -14,11 +14,11 @@ TRAIN_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, 'train_processed.csv')
 MODEL_PATH = os.path.join(MODELS_DIR, 'pipeline_modele2_best.pkl')
 
 # Listes de référence
-NEIGHBORHOODS = sorted([
+NEIGHBORHOODS = sorted(list(set([
     'Ballard', 'Central', 'Delridge', 'Downtown', 'East', 
     'Greater Duwamish', 'Lake Union', 'Magnolia / Queen Anne', 
     'North', 'Northeast', 'Northwest', 'Southeast', 'Southwest'
-])
+])))
 
 BUILDING_TYPES = sorted([
     'Distribution Center', 'Hospital', 'Hotel', 'K-12 School', 
