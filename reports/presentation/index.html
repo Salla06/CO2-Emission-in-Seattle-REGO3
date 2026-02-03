@@ -442,13 +442,12 @@
                 <div class="eval-card">
                     <h3><i class="fas fa-chart-pie"></i> Métriques Régression</h3>
                     <ul class="eval-list">
-                        <li><strong>R² Score :</strong> Variance expliquée (0-1)</li>
+                        <li><strong>CV R² Mean :</strong> R² moyen en validation croisée</li>
+                        <li><strong>Test R² :</strong> Variance expliquée sur l'ensemble de test</li>
                         <li><strong>RMSE :</strong> Erreur quadratique moyenne (tonnes CO₂)</li>
-                        <li><strong>MAE :</strong> Erreur absolue moyenne</li>
-                        <li><strong>MAPE :</strong> Erreur % moyenne (interprétabilité)</li>
+                        <li><strong>MAPE :</strong> Erreur pourcentage moyenne (interprétabilité)</li>
                     </ul>
                 </div>
-                
                 <div class="eval-card">
                     <h3><i class="fas fa-microscope"></i> Tests Statistiques</h3>
                     <ul class="eval-list">
@@ -484,57 +483,202 @@
     </div>
 
     <!-- Slide 11 - Résultats et impact -->
-    <div class="slide-container slide-11" id="slide-11">
-        <div class="slide-content">
-            <h2 class="section-title">
-                <i class="fas fa-chart-line"></i> Résultats et impact
-            </h2>
-            
-            <div class="results-summary">
-                <div class="result-highlight">
-                    <div class="result-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="result-content">
-                        <h3>Performance exceptionnelle</h3>
-                        <ul>
-                            <li><strong>R² = 1.00</strong> - Performance quasi-parfaite</li>
-                            <li><strong>RMSE = 0.85 T CO₂</strong> - Erreur très faible</li>
-                            <li><strong>MAPE = 0.30%</strong> - Erreur relative inférieure à 1%</li>
-                        </ul>
-                    </div>
+    <!-- Slide 11A - Comparaison des Performances -->
+<div class="slide-container slide-10" id="slide-11">
+    <div class="slide-content">
+        <h2 class="section-title">
+            <i class="fas fa-chart-line"></i> Résultats et Performance des Modèles
+        </h2>
+        
+        <div class="results-summary">
+            <!-- Champion Model Banner -->
+            <div>
+                <div>
+                    <i class="fas fa-trophy"></i>
                 </div>
-                
-                <div class="impact-grid">
-                    <div class="impact-card">
-                        <div class="impact-icon">
-                            <i class="fas fa-city"></i>
+                <div class="champion-text">
+                    <h3>Modèle Champion : Gradient Boosting</h3>
+                    <p>Meilleur algorithme identifié après optimisation systématique</p>
+                </div>
+            </div>
+
+            <!-- Performance Comparison Table -->
+            <div class="performance-table-wrapper">
+                <h3 class="subsection-title">
+                    <i class="fas fa-table"></i> Comparaison des Performances
+                </h3>
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Algorithme</th>
+                            <th>Scénario</th>
+                            <th>CV R² Mean</th>
+                            <th>Test R²</th>
+                            <th>RMSE (tonnes CO₂)</th>
+                            <th>MAPE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="champion-row">
+                            <td rowspan="2" class="algorithm-cell">
+                                <i class="fas fa-rocket"></i> <strong>Gradient Boosting</strong>
+                            </td>
+                            <td class="scenario-with">Modèle 2 (Avec ENERGY STAR)</td>
+                            <td class="metric-best">0.7353 ± 0.0165</td>
+                            <td class="metric-best">0.6833</td>
+                            <td class="metric-best">96.51</td>
+                            <td class="metric-best">88.00%</td>
+                        </tr>
+                        <tr class="champion-row">
+                            <td class="scenario-without">Modèle 1 (Sans ENERGY STAR)</td>
+                            <td>0.7067 ± 0.0208</td>
+                            <td>0.6509</td>
+                            <td>99.91</td>
+                            <td>96.44%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Impact Summary -->
+            <div class="impact-summary">
+                <div class="impact-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-building"></i>
+                        <div class="stat-content">
+                            <span class="stat-number">1,666</span>
+                            <span class="stat-label">Bâtiments analysés</span>
                         </div>
-                        <h4>Planification urbaine</h4>
-                        <p>Outil d'aide à la décision fiable pour urbanistes et décideurs</p>
                     </div>
-                    <div class="impact-card">
-                        <div class="impact-icon">
-                            <i class="fas fa-leaf"></i>
+                    <div class="stat-item">
+                        <i class="fas fa-layer-group"></i>
+                        <div class="stat-content">
+                            <span class="stat-number">5</span>
+                            <span class="stat-label">Algorithmes comparés</span>
                         </div>
-                        <h4>Transition écologique</h4>
-                        <p>Contribution aux objectifs de neutralité carbone 2050</p>
                     </div>
-                    <div class="impact-card">
-                        <div class="impact-icon">
-                            <i class="fas fa-database"></i>
+                    <div class="stat-item">
+                        <i class="fas fa-leaf"></i>
+                        <div class="stat-content">
+                            <span class="stat-number">2050</span>
+                            <span class="stat-label">Objectif neutralité carbone</span>
                         </div>
-                        <h4>Données analysées</h4>
-                        <p>1,666 bâtiments non résidentiels modélisés</p>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="slide-number">11/14</div>
     </div>
+    <div class="slide-number">11A/14</div>
+</div>
 
-    <!-- Slide 12 - Équipe -->
-    <div class="slide-container slide-12" id="slide-12">
+<!-- Slide 11B - Impact Energy Star Score -->
+<div class="slide-container slide-10" id="slide-12">
+    <div class="slide-content">
+        <h2 class="section-title">
+            <i class="fas fa-star"></i> Impact de l'Energy Star Score
+        </h2>
+        
+        <div class="results-summary">
+            <!-- Energy Star Impact Section -->
+            <div class="energy-star-impact">
+                <h3 class="subsection-title">
+                    <i class="fas fa-star"></i> Gains de Performance avec Energy Star Score
+                </h3>
+                <div class="metrics-grid">
+                    <div class="metric-card gain">
+                        <div class="metric-header">
+                            <i class="fas fa-percentage"></i>
+                            <span>CV R² Mean</span>
+                        </div>
+                        <div class="metric-comparison">
+                            <span class="before">0.7067</span>
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="after">0.7353</span>
+                        </div>
+                        <div class="metric-gain positive">
+                            <i class="fas fa-arrow-up"></i> +0.0286 (+4.0%)
+                        </div>
+                    </div>
+                    <div class="metric-card gain">
+                        <div class="metric-header">
+                            <i class="fas fa-percentage"></i>
+                            <span>Test R²</span>
+                        </div>
+                        <div class="metric-comparison">
+                            <span class="before">0.6509</span>
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="after">0.6833</span>
+                        </div>
+                        <div class="metric-gain positive">
+                            <i class="fas fa-arrow-up"></i> +0.0324 (+5.0%)
+                        </div>
+                    </div>
+                    <div class="metric-card gain">
+                        <div class="metric-header">
+                            <i class="fas fa-chart-line"></i>
+                            <span>RMSE (tonnes CO₂)</span>
+                        </div>
+                        <div class="metric-comparison">
+                            <span class="before">99.91</span>
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="after">96.51</span>
+                        </div>
+                        <div class="metric-gain positive">
+                            <i class="fas fa-arrow-down"></i> -3.4 tonnes (amélioration)
+                        </div>
+                    </div>
+                    <div class="metric-card gain">
+                        <div class="metric-header">
+                            <i class="fas fa-bullseye"></i>
+                            <span>MAPE</span>
+                        </div>
+                        <div class="metric-comparison">
+                            <span class="before">96.44%</span>
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="after">88.00%</span>
+                        </div>
+                        <div class="metric-gain positive">
+                            <i class="fas fa-arrow-down"></i> -8.44 points
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Insights -->
+            <div class="insights-section">
+                <h3 class="subsection-title">
+                    <i class="fas fa-lightbulb"></i> Conclusions Clés
+                </h3>
+                <div class="insights-grid">
+                    <div class="insight-card primary">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="insight-content">
+                            <h4>Performance Optimale</h4>
+                            <p>Le Gradient Boosting avec Energy Star atteint <strong>68.33% de variance expliquée</strong></p>
+                        </div>
+                    </div>
+                    <div class="insight-card secondary">
+                        <i class="fas fa-balance-scale"></i>
+                        <div class="insight-content">
+                            <h4>Alternative Viable</h4>
+                            <p>Le modèle sans Energy Star reste performant (<strong>R²=0.65</strong>) pour le parc non audité</p>
+                        </div>
+                    </div>
+                    <div class="insight-card tertiary">
+                        <i class="fas fa-chart-bar"></i>
+                        <div class="insight-content">
+                            <h4>Gain Mesurable</h4>
+                            <p>L'Energy Star Score justifie son coût avec <strong>+4 à +5% de précision</strong></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-number">11B/14</div>
+</div>
+      <!-- Slide 12 - Équipe -->
+    <div class="slide-container slide-12" id="slide-13">
         <div class="slide-content">
             <h2 class="section-title">
                 <i class="fas fa-users"></i> Notre équipe de projet
@@ -555,7 +699,7 @@
                 <!-- Membre 2 -->
                 <div class="team-member">
                     <div class="member-photo">
-                        <img src="src/img/mariane_daiferle.jpg" alt="Mariane DAÏFERLE" onerror="this.src='https://via.placeholder.com/150/f093fb/ffffff?text=MD'">
+                        <img src="src/img/mariane_daiferle.jpg" alt="Marianne DAÏFERLE" onerror="this.src='https://via.placeholder.com/150/f093fb/ffffff?text=MD'">
                     </div>
                     <div class="member-info">
                         <h3>Mariane DAÏFERLE</h3>
@@ -566,11 +710,11 @@
                 <!-- Membre 3 -->
                 <div class="team-member">
                     <div class="member-photo">
-                        <img src="src/img/mouhammdou_dia.jpg" alt="Mouhammdou DIA" onerror="this.src='https://via.placeholder.com/150/4facfe/ffffff?text=MD'">
+                        <img src="src/img/mouhammdou_dia.jpg" alt="Mouhammadou DIA" onerror="this.src='https://via.placeholder.com/150/4facfe/ffffff?text=MD'">
                     </div>
                     <div class="member-info">
-                        <h3>Mouhammdou DIA</h3>
-                        <p class="member-role">Analyste statisticien - Data Analyst</p>
+                        <h3>Mouhammadou DIA</h3>
+                        <p class="member-role">Analyste statisticien - Data Scientist</p>
                     </div>
                 </div>
 
@@ -592,7 +736,7 @@
                     </div>
                     <div class="member-info">
                         <h3>Ndèye Salla TOURE</h3>
-                        <p class="member-role">Analyste statisticienne - Data Engineer</p>
+                        <p class="member-role">Analyste statisticienne - Data Scientist</p>
                     </div>
                 </div>
             </div>
@@ -605,7 +749,7 @@
     </div>
 
     <!-- Slide 13 - Superviseure -->
-    <div class="slide-container slide-13" id="slide-13">
+    <div class="slide-container slide-13" id="slide-14">
         <div class="slide-content">
             <h2 class="section-title">
                 <i class="fas fa-chalkboard-teacher"></i> Encadrement académique
@@ -617,9 +761,7 @@
                 </div>
                 <div class="supervisor-info">
                     <h3>Mme Fatou SALL</h3>
-                    <p class="supervisor-title">LLM Engineer | Machine Learning Engineer | MLOps</p>
-                    <p class="supervisor-institution">Ingénieure en Machine Learning passionnée et polyvalente,spécialisée dans la conception, le déploiement et l'automatisation de solutions intelligentes qui transforment les environnements d'entreprise.</p>
-                    
+                    <p class="supervisor-title">LLM Engineer | Machine Learning Engineer | MLOps</p>                    
                     <div class="supervisor-expertise">
                         <h4>Domaines d'expertise</h4>
                         <ul>
@@ -628,10 +770,6 @@
                             <li>Formatrice IA & ML</li>
                         </ul>
                     </div>
-                    
-                    <div class="supervisor-quote">
-                        <p><i class="fas fa-quote-left"></i> L'excellence en data science naît de la rigueur méthodologique et de la créativité analytique <i class="fas fa-quote-right"></i></p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -639,7 +777,7 @@
     </div>
 
     <!-- Slide 14 - Merci -->
-    <div class="slide-container slide-14" id="slide-14">
+    <div class="slide-container slide-14" id="slide-15">
         <div class="slide-content">
             <h1 class="title-main">Merci pour votre attention</h1>
             

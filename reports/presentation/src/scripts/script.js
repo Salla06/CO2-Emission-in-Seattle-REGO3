@@ -1,9 +1,9 @@
 // Configuration
 let currentSlide = 1;
-const totalSlides = 14;
+const totalSlides = 15;
 let isFullscreen = false;
 let autoPlayInterval = null;
-const autoPlayDelay = 10000; // 10 secondes
+const autoPlayDelay = 5000; // 10 secondes
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
@@ -24,8 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Événements de swipe pour mobiles
     setupSwipeEvents();
     
-    // Démarrer l'autoplay
-    startAutoPlay();
 });
 
 // Navigation entre slides
