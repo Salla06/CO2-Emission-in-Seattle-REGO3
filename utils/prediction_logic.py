@@ -341,9 +341,21 @@ def generate_report_pdf(prediction_data, features):
         pdf.set_font("Arial", 'I', 8)
         pdf.cell(0, 5, clean_for_pdf("Genere par Seattle Dashboard."), align='C')
         
-        return pdf.output(dest='S').encode('latin-1')
+        # Compatibilité FPDF2 vs FPDF Legacy
+        try:
+            # FPDF2 : output() renvoie des bytes/bytearray directement
+            pdf_out = pdf.output()
+            if isinstance(pdf_out, str):
+                return pdf_out.encode('latin-1') # Legacy behavior
+            return bytes(pdf_out) # FPDF2 behavior
+        except TypeError:
+            # Fallback pour anciennes versions qui exigent dest='S'
+            return pdf.output(dest='S').encode('latin-1')
     except Exception as e:
         print(f"Erreur generation PDF: {e}")
+        # En production, il est crucial de loguer l'erreur exacte
+        import traceback
+        traceback.print_exc()
         return None
 
 def get_feature_importance():

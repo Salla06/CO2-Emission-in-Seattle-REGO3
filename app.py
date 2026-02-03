@@ -700,9 +700,42 @@ def update_eda_graphs(sx, sy, bx, by):
 @functools.lru_cache(maxsize=1)
 def load_model_metrics():
     try:
+        # 1. Priorité aux résultats exhaustifs de l'optimisation (CSV)
+        opt_csv_path = os.path.join(RESULTS_DIR, 'optimization', 'optimized_models_comparison.csv')
+        if os.path.exists(opt_csv_path):
+            df = pd.read_csv(opt_csv_path)
+            # Standardisation des noms de colonnes si nécessaire (déjà correct dans le CSV actuel)
+            return df
+            
+        # 2. Fallback sur le JSON (metrics_comparison.json)
         csv_path = os.path.join(RESULTS_DIR, 'metrics_comparison.json')
         if os.path.exists(csv_path):
-            return pd.read_csv(csv_path)
+            with open(csv_path, 'r') as f:
+                data = json.load(f)
+            
+            # Transformation en liste de dictionnaires pour le DataFrame
+            records = []
+            if "modele_1" in data:
+                m1 = data["modele_1"]
+                records.append({
+                    "Modèle": f"M1 - {m1.get('nom', 'Model 1')} (Optimisé)",
+                    "R² Test": m1.get('r2_test'),
+                    "RMSE Original": m1.get('rmse_test_original'),
+                    "MAPE": m1.get('mape_test'),
+                    "CV R² Mean": m1.get('cv_r2_mean')
+                })
+            
+            if "modele_2" in data:
+                m2 = data["modele_2"]
+                records.append({
+                    "Modèle": f"M2 - {m2.get('nom', 'Model 2')} (Optimisé)",
+                    "R² Test": m2.get('r2_test'),
+                    "RMSE Original": m2.get('rmse_test_original'),
+                    "MAPE": m2.get('mape_test'),
+                    "CV R² Mean": m2.get('cv_r2_mean')
+                })
+                
+            return pd.DataFrame(records)
     except Exception as e:
         print(f"Erreur chargement metrics: {e}")
     return None
