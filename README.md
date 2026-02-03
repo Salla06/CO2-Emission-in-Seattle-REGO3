@@ -99,4 +99,4 @@ Lancer l'application :
 ```bash
 python seattle_dashboard/app.py
 ```
-*Accéder à l'interface via http://127.0.0.1:8050/*
+*Accéder à l'interface via https://co2-emission-in-seattle-rego3-i479.onrender.com/*
