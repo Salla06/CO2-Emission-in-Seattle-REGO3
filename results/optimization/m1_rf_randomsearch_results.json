@@ -1,0 +1,32 @@
+{
+    "method": "RandomizedSearchCV",
+    "model": "Random Forest",
+    "dataset": "Mod\u00e8le 1 (Sans ENERGY STAR)",
+    "best_params": {
+        "model__n_estimators": 150,
+        "model__min_samples_split": 15,
+        "model__min_samples_leaf": 1,
+        "model__max_features": null,
+        "model__max_depth": 20,
+        "model__bootstrap": true
+    },
+    "cv_score": 0.6957887712466324,
+    "metrics": {
+        "model": "Random Forest RandomizedSearch M1",
+        "train_r2": 0.89158410324042,
+        "test_r2": 0.6086623969970127,
+        "train_rmse_log": 0.4379244738380949,
+        "test_rmse_log": 0.8054774829159659,
+        "train_mae_log": 0.3434123501706635,
+        "test_mae_log": 0.5985902308455612,
+        "train_rmse_original": 66.31404655127997,
+        "test_rmse_original": 102.06959842180197,
+        "train_mape": 38.960001414780955,
+        "test_mape": 110.5452960531309,
+        "cv_r2_mean": 0.6957887712466324,
+        "cv_r2_std": 0.017409168471190933,
+        "overfitting_r2": 0.2829217062434073
+    },
+    "optimization_time_minutes": 3.6408997257550557,
+    "n_iterations": 30
+}

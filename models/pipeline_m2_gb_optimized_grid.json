@@ -1,0 +1,16 @@
+{
+    "model": "Gradient Boosting GridSearch M2",
+    "train_r2": 0.9184960429829134,
+    "test_r2": 0.6877987091237923,
+    "train_rmse_log": 0.37970129711798956,
+    "test_rmse_log": 0.7194406307749247,
+    "train_mae_log": 0.30517596651421147,
+    "test_mae_log": 0.5384147933838457,
+    "train_rmse_original": 55.28466940582032,
+    "test_rmse_original": 94.65667678506719,
+    "train_mape": 33.92851141502718,
+    "test_mape": 88.22645077231964,
+    "cv_r2_mean": 0.7521024090808158,
+    "cv_r2_std": 0.01343802176650076,
+    "overfitting_r2": 0.23069733385912117
+}

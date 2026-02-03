@@ -1,0 +1,25 @@
+{
+    "method": "GridSearchCV",
+    "model": "Lasso",
+    "dataset": "Mod\u00e8le 1",
+    "best_params": {
+        "model__alpha": 0.01
+    },
+    "cv_score": 0.6506322138330617,
+    "metrics": {
+        "model": "Lasso M1",
+        "train_r2": 0.9457719087434252,
+        "test_r2": 0.5942160304400339,
+        "train_rmse_log": 0.30971689218901544,
+        "test_rmse_log": 0.8202099947209592,
+        "train_mae_log": 0.2875566268447611,
+        "test_mae_log": 0.6466295065700609,
+        "train_rmse_original": 56.73352659321301,
+        "test_rmse_original": 417.50103978253003,
+        "train_mape": 31.094355144263208,
+        "test_mape": 103.61229411191893,
+        "cv_r2_mean": 0.6506322138330617,
+        "cv_r2_std": 0.02803393272126194,
+        "overfitting_r2": 0.3515558783033913
+    }
+}

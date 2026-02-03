@@ -1,0 +1,16 @@
+{
+    "model": "Random Forest GridSearch M2",
+    "train_r2": 0.9457198927002474,
+    "test_r2": 0.6335056429030174,
+    "train_rmse_log": 0.3098653981150423,
+    "test_rmse_log": 0.7794912779741029,
+    "train_mae_log": 0.23661557614940595,
+    "test_mae_log": 0.5772757813069408,
+    "train_rmse_original": 49.64972464098624,
+    "test_rmse_original": 100.84648083131835,
+    "train_mape": 25.938277216800635,
+    "test_mape": 110.6852834403983,
+    "cv_r2_mean": 0.7151969926097118,
+    "cv_r2_std": 0.010082942231055101,
+    "overfitting_r2": 0.31221424979723
+}

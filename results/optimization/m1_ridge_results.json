@@ -1,0 +1,25 @@
+{
+    "method": "GridSearchCV",
+    "model": "Ridge",
+    "dataset": "Mod\u00e8le 1",
+    "best_params": {
+        "model__alpha": 0.1
+    },
+    "cv_score": 0.5893650617401469,
+    "metrics": {
+        "model": "Ridge M1",
+        "train_r2": 0.999987167929233,
+        "test_r2": 0.5179010258693653,
+        "train_rmse_log": 0.004764322008190703,
+        "test_rmse_log": 0.8940168775500302,
+        "train_mae_log": 0.00023784682999675302,
+        "test_mae_log": 0.702764806011692,
+        "train_rmse_original": 0.2453014013619919,
+        "test_rmse_original": 135.62665538897795,
+        "train_mape": 0.024578026825161817,
+        "test_mape": 122.76864628623751,
+        "cv_r2_mean": 0.5893650617401469,
+        "cv_r2_std": 0.04566374433330154,
+        "overfitting_r2": 0.4820861420598678
+    }
+}
