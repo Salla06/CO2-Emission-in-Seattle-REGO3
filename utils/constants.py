@@ -1,53 +1,123 @@
-# Constants and Labels from Seattle Dataset
-BUILDING_TYPES = [
-    'Office', 'Hotel', 'Large Office', 'Retail Store', 
-    'Non-Refrigerated Warehouse', 'K-12 School', 'Medical Office',
-    'Small- and Mid-Sized Office', 'Self-Storage Facility',
-    'Distribution Center', 'Senior Care Community'
-]
 
-NEIGHBORHOODS = [
-    'Downtown', 'Magnolia / Queen Anne', 'Greater Duwamish',
-    'Lake Union', 'East', 'Northeast', 'Northwest', 'South',
-    'Southeast', 'Central', 'Ballard'
-]
+import os
+import pandas as pd
 
-# Real Seattle Benchmarking Statistics (approximate based on project reports)
+# Chemins de fichiers
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed_data')
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+RESULTS_DIR = os.path.join(BASE_DIR, 'results')
+ASSETS_DIR = os.path.join(BASE_DIR, 'assets')
+
+# Fichiers spécifiques
+TRAIN_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, 'train_processed.csv')
+TEST_DATA_PATH = os.path.join(PROCESSED_DATA_DIR, 'test_processed.csv')
+MODEL_PATH = os.path.join(MODELS_DIR, 'pipeline_modele2_best.pkl')
+
+# Listes de référence
+NEIGHBORHOODS = sorted(list(set([
+    'Ballard', 'Central', 'Delridge', 'Downtown', 'East', 
+    'Greater Duwamish', 'Lake Union', 'Magnolia / Queen Anne', 
+    'North', 'Northeast', 'Northwest', 'Southeast', 'Southwest'
+])))
+
+BUILDING_TYPES = sorted([
+    'Distribution Center', 'Hospital', 'Hotel', 'K-12 School', 
+    'Laboratory', 'Large Office', 'Low-Rise Multifamily', 
+    'Medical Office', 'Mixed Use Property', 'Office', 
+    'Other', 'Refrigerated Warehouse', 'Residence Hall', 
+    'Restaurant', 'Retail Store', 'Self-Storage Facility', 
+    'Senior Care Community', 'Small- and Mid-Sized Office', 
+    'Supermarket / Grocery Store', 'University', 
+    'Warehouse', 'Worship Facility'
+])
+
+# Mapping normalisation
+NEIGHBORHOOD_MAPPING = {
+    'BALLARD': 'Ballard', 'CENTRAL': 'Central', 'DELRIDGE': 'Delridge',
+    'DELRIDGE NEIGHBORHOODS': 'Delridge', 'DOWNTOWN': 'Downtown', 'EAST': 'East',
+    'GREATER DUWAMISH': 'Greater Duwamish', 'LAKE UNION': 'Lake Union',
+    'MAGNOLIA / QUEEN ANNE': 'Magnolia / Queen Anne', 'NORTH': 'North',
+    'NORTHEAST': 'Northeast', 'NORTHWEST': 'Northwest', 'SOUTHEAST': 'Southeast',
+    'SOUTHWEST': 'Southwest'
+}
+
+# Statistiques globales (Source: train + test = 1666 bâtiments au total)
+# Calculé sur l'ensemble complet (1666 bâtiments)
 CITY_WIDE_STATS = {
-    'total_buildings': 3376,
-    'avg_emissions': 119.7,
-    'median_emissions': 33.9,
-    'total_gfa_sqft': 450000000,
-    'avg_energy_star': 67.9
+    "mean_co2": 115.3,  
+    "median_co2": 49.6,  
+    "avg_energy_star": 68.4,
+    "total_buildings": 1666
 }
 
-# Median Total GHG Emissions by Type (Tonnes/yr) - Sourced from Seattle 2016 Report
+# Benchmarks par type (Source: train + test)
 BUILDING_TYPE_BENCHMARKS = {
-    'Office': 35.0,
-    'Hotel': 145.0,
-    'Large Office': 180.0,
-    'Small- and Mid-Sized Office': 20.0,
-    'Retail Store': 25.0,
-    'Non-Refrigerated Warehouse': 15.0,
-    'K-12 School': 45.0,
-    'Senior Care Community': 110.0,
-    'Distribution Center': 40.0,
-    'Medical Office': 30.0,
-    'Self-Storage Facility': 10.0,
-    'Other': 40.0
+    'Hospital': 509.3,
+    'Laboratory': 438.4,
+    'Senior Care Community': 275.0,
+    'Hotel': 256.1,
+    'University': 232.6,
+    'Supermarket / Grocery Store': 222.7,
+    'Large Office': 192.3,
+    'Restaurant': 188.6,
+    'Medical Office': 173.2,
+    'Other': 145.6,
+    'Mixed Use Property': 135.8,
+    'Residence Hall': 101.3,
+    'K-12 School': 89.4,
+    'Retail Store': 87.3,
+    'Distribution Center': 50.4,
+    'Warehouse': 42.7,
+    'Worship Facility': 42.3,
+    'Small- and Mid-Sized Office': 40.5,
+    'Refrigerated Warehouse': 37.6,
+    'Self-Storage Facility': 24.6,
+    'Low-Rise Multifamily': 19.1,
+    'Office': 10.8
 }
 
-# Neighborhood coordinates and typical building stats for interactive mapping
+# Statistiques par quartier (Calculé sur 1666 bâtiments)
 NEIGHBORHOOD_STATS = {
-    'Downtown': {'lat': 47.6062, 'lon': -122.3321, 'avg_gfa': 150000, 'avg_year': 1975, 'avg_floors': 12, 'avg_co2': 180, 'count': 850, 'avg_estar': 75},
-    'Magnolia / Queen Anne': {'lat': 47.6419, 'lon': -122.3848, 'avg_gfa': 45000, 'avg_year': 1968, 'avg_floors': 3, 'avg_co2': 40, 'count': 320, 'avg_estar': 65},
-    'Greater Duwamish': {'lat': 47.5510, 'lon': -122.3330, 'avg_gfa': 85000, 'avg_year': 1972, 'avg_floors': 2, 'avg_co2': 90, 'count': 410, 'avg_estar': 55},
-    'Lake Union': {'lat': 47.6254, 'lon': -122.3375, 'avg_gfa': 65000, 'avg_year': 1990, 'avg_floors': 5, 'avg_co2': 75, 'count': 550, 'avg_estar': 80},
-    'East': {'lat': 47.6160, 'lon': -122.3150, 'avg_gfa': 40000, 'avg_year': 1955, 'avg_floors': 3, 'avg_co2': 35, 'count': 280, 'avg_estar': 60},
-    'Northeast': {'lat': 47.6750, 'lon': -122.3000, 'avg_gfa': 55000, 'avg_year': 1965, 'avg_floors': 3, 'avg_co2': 45, 'count': 300, 'avg_estar': 62},
-    'Northwest': {'lat': 47.6950, 'lon': -122.3550, 'avg_gfa': 35000, 'avg_year': 1960, 'avg_floors': 2, 'avg_co2': 30, 'count': 250, 'avg_estar': 58},
-    'South': {'lat': 47.5300, 'lon': -122.2850, 'avg_gfa': 70000, 'avg_year': 1982, 'avg_floors': 2, 'avg_co2': 65, 'count': 380, 'avg_estar': 50},
-    'Southeast': {'lat': 47.5500, 'lon': -122.2800, 'avg_gfa': 30000, 'avg_year': 1958, 'avg_floors': 2, 'avg_co2': 25, 'count': 220, 'avg_estar': 55},
-    'Central': {'lat': 47.6100, 'lon': -122.3000, 'avg_gfa': 45000, 'avg_year': 1945, 'avg_floors': 3, 'avg_co2': 40, 'count': 190, 'avg_estar': 45},
-    'Ballard': {'lat': 47.6680, 'lon': -122.3850, 'avg_gfa': 38000, 'avg_year': 1970, 'avg_floors': 3, 'avg_co2': 38, 'count': 180, 'avg_estar': 60}
+    'Ballard': {'lat': 47.6718, 'lon': -122.3749, 'avg_co2': 89.4, 'count': 70, 'avg_gfa': 55451, 'avg_year': 1962, 'avg_floors': 2.2},
+    'Central': {'lat': 47.6070, 'lon': -122.3051, 'avg_co2': 83.2, 'count': 56, 'avg_gfa': 67126, 'avg_year': 1963, 'avg_floors': 2.6},
+    'Delridge': {'lat': 47.5466, 'lon': -122.3569, 'avg_co2': 93.4, 'count': 47, 'avg_gfa': 72148, 'avg_year': 1976, 'avg_floors': 1.7},
+    'Downtown': {'lat': 47.6078, 'lon': -122.3362, 'avg_co2': 161.3, 'count': 360, 'avg_gfa': 148500, 'avg_year': 1946, 'avg_floors': 6.5},
+    'East': {'lat': 47.6150, 'lon': -122.3197, 'avg_co2': 155.8, 'count': 121, 'avg_gfa': 94969, 'avg_year': 1948, 'avg_floors': 3.8},
+    'Greater Duwamish': {'lat': 47.5657, 'lon': -122.3252, 'avg_co2': 68.0, 'count': 346, 'avg_gfa': 67962, 'avg_year': 1961, 'avg_floors': 1.7},
+    'Lake Union': {'lat': 47.6356, 'lon': -122.3380, 'avg_co2': 144.1, 'count': 148, 'avg_gfa': 126107, 'avg_year': 1977, 'avg_floors': 4.0},
+    'Magnolia / Queen Anne': {'lat': 47.6358, 'lon': -122.3610, 'avg_co2': 106.0, 'count': 151, 'avg_gfa': 84408, 'avg_year': 1971, 'avg_floors': 3.0},
+    'North': {'lat': 47.7046, 'lon': -122.3110, 'avg_co2': 83.4, 'count': 67, 'avg_gfa': 74833, 'avg_year': 1973, 'avg_floors': 2.3},
+    'Northeast': {'lat': 47.6669, 'lon': -122.3045, 'avg_co2': 111.4, 'count': 127, 'avg_gfa': 80437, 'avg_year': 1965, 'avg_floors': 2.8},
+    'Northwest': {'lat': 47.6998, 'lon': -122.3426, 'avg_co2': 116.7, 'count': 86, 'avg_gfa': 66921, 'avg_year': 1971, 'avg_floors': 2.0},
+    'Southeast': {'lat': 47.5559, 'lon': -122.2907, 'avg_co2': 102.8, 'count': 46, 'avg_gfa': 67135, 'avg_year': 1978, 'avg_floors': 1.9},
+    'Southwest': {'lat': 47.5624, 'lon': -122.3773, 'avg_co2': 111.0, 'count': 41, 'avg_gfa': 55970, 'avg_year': 1960, 'avg_floors': 2.1}
 }
+
+# Couleurs du thème
+COLORS = {
+    'background': '#0f172a',
+    'text': '#e2e8f0',
+    'primary': '#3b82f6',
+    'secondary': '#64748b',
+    'accent': '#10b981',
+    'danger': '#ef4444',
+    'card': '#1e293b',
+    'success': '#10b981'
+}
+
+# Facteurs de conversion et calculs
+CO2_CONVERSION_FACTOR = 0.05  # Facteur de conversion kBtu -> TCO2
+ENERGY_STAR_IMPACT_WEIGHT = 0.8  # Poids de l'impact Energy Star
+ENERGY_STAR_BASE_FACTOR = 1.4  # Facteur de base pour Energy Star
+GAS_ESTIMATION_FACTOR = 0.1  # Estimation consommation gaz par sqft
+STEAM_ESTIMATION_FACTOR = 0.05  # Estimation consommation vapeur par sqft
+ELECTRICITY_BASE_FACTOR = 15  # Consommation électricité de base par sqft
+NEIGHBORHOOD_STD_PROXY = 0.4  # Proxy pour écart-type quartier
+BUILDING_TYPE_STD_PROXY = 0.5  # Proxy pour écart-type type de bâtiment
+ENERGY_STAR_IMPROVEMENT_TARGET = 25  # Points d'amélioration cible Energy Star
+CARBON_COST_PER_TON = 100  # Coût social du carbone ($/T)
+TARGET_2030_REDUCTION = 0.6  # Réduction cible 2030 (60%)
+MAX_UPLOAD_SIZE_MB = 5  # Taille maximale upload CSV (MB)
+

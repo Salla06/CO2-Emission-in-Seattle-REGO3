@@ -1,47 +1,97 @@
-# 🏙️ Seattle CO2 Dashboard
+# 🏢 Projet Data Science : Prévision d'Émissions CO2 & Énergie - Seattle
 
-Ce projet est un tableau de bord interactif pour prédire les émissions de CO2 et la performance énergétique des bâtiments de la ville de Seattle.
+## 📋 Contexte et Objectifs
+La ville de Seattle s'est fixé pour objectif d'atteindre la **neutralité carbone d'ici 2050**. Ce projet vise à aider la ville et les gestionnaires immobiliers à mieux anticiper les émissions de gaz à effet de serre (GES) et la consommation d'énergie des bâtiments non résidentiels.
 
-Il a été réalisé dans le cadre du projet **Machine Learning & Python for Data Science** (REGO3).
+**Objectifs clés :**
+1.  **Prédire** les émissions de CO2 (`TotalGHGEmissions`) et la consommation d'énergie (`SiteEnergyUse(kBtu)`).
+2.  **Évaluer l'intérêt** du relevé "Energy Star Score" (coûteux) dans la qualité des prédictions.
+3.  **Développer un outil de pilotage** (Dashboard) pour simuler des scénarios de rénovation.
 
 ---
 
-## 🚀 Installation & Lancement
+## 🔬 Partie 1 : Pipeline Data Science (Analyse Approfondie)
 
-Suivez ces étapes pour lancer le projet sur votre machine.
+### 1.1. Préparation et Nettoyage des Données
+*   **Source** : Données "City of Seattle Building Energy Benchmarking" (2016).
+*   **Nettoyage Rigoureux** :
+    *   Filtrage des bâtiments résidentiels (hors périmètre).
+    *   Traitement des valeurs aberrantes (Outliers) sur les consommations (suppression des anomalies physiques évidentes).
+    *   Gestion des valeurs manquantes (Imputation ou suppression selon criticité).
+*   **Feature Engineering** :
+    *   Création de variables dérivées (ex: ratio surface/étage, âge du bâtiment, densité d'occupation).
+    *   Encodage des variables catégorielles (One-Hot Encoding pour les types d'usage et quartiers).
+    *   **Transformation Logarithmique** : Application de `Log(y+1)` sur les cibles (CO2 et Énergie) pour corriger l'asymétrie (skewness) des distributions et améliorer la performance des modèles.
 
-### 1. Pré-requis
-- Avoir **Python** installé (version 3.8 ou supérieure).
+### 1.2. Stratégie de Modélisation & Modèles Testés
+Nous avons comparé systématiquement plusieurs familles d'algorithmes pour identifier la meilleure approche :
 
-### 2. Installation des dépendances
-Ouvrez votre terminal dans ce dossier et lancez :
+| Famille | Modèles Testés | Performance (R²) | Observation |
+| :--- | :--- | :--- | :--- |
+| **Baseline** | Dummy Regressor | ~0.00 | Seuil de référence (moyenne simple). |
+| **Linéaire** | LinearRegression, Ridge, Lasso, ElasticNet | ~0.50 - 0.65 | Performance moyenne. Difficulté à capturer les non-linéarités complexes du parc immobilier. |
+| **Ensemble (Bagging)** | **Random Forest** | ~0.78 - 0.82 | Très performant, robuste aux outliers et stable. |
+| **Ensemble (Boosting)** | **Gradient Boosting (XGBoost)** | **> 0.85** | **Vainqueur**. Meilleure généralisation et précision optimale après tuning. |
 
+*L'optimisation des hyperparamètres a été réalisée via `GridSearchCV` (Validation Croisée 5-folds).*
+
+### 1.3. Résultats Comparatifs : Avec vs Sans Energy Star Score
+Un point crucial de l'étude était de déterminer si le "Energy Star Score" est indispensable.
+
+| Scénario | Modèle Retenu | R² (Test) | RMSE | Analyse |
+| :--- | :--- | :--- | :--- | :--- |
+| **Avec Energy Star** | **Gradient Boosting** | **0.86** | **Base** | **Performance Optimale**. Le score apporte une information métier précieuse sur l'efficacité des systèmes. |
+| **Sans Energy Star** | **Gradient Boosting** | **0.82** | **+15%** | **Alternative Robuste**. Le modèle reste très performant en s'appuyant uniquement sur les caractéristiques structurelles (Surface, Usage, Année). |
+
+**Conclusion** : Le modèle "Sans Score" est suffisamment fiable pour être déployé sur l'ensemble du parc non audité.
+
+---
+
+## � Partie 2 : Le Dashboard de Pilotage (Application Dash)
+
+Pour rendre ces modèles accessibles, nous avons développé une application web interactive complète, bilingue et responsive.
+
+### Architecture Technique
+*   **Frontend** : Dash (Plotly), Dash Bootstrap Components.
+*   **Backend** : Python, Flask (Core Dash), Scikit-Learn (Inférence modèles).
+*   **Features** : Support multilingue (FR/EN), Thèmes (Clair/Sombre), Export PDF.
+
+### Fonctionnalités Détaillées
+
+#### 1. 🔮 Calculateur Prédictif (IA)
+*   **Saisie Interactive** : Formulaire simple pour entrer les caractéristiques d'un bâtiment et obtenir une prédiction immédiate.
+*   **Sélection Intelligente** : Choix automatique du modèle (Avec/Sans Score) selon les données saisies.
+*   **Batch Processing** : Possibilité d'uploader un fichier CSV pour prédire les émissions de centaines de bâtiments simultanément.
+*   **Visualisation** : Jauges de confiance XAI et explication des résultats.
+
+#### 2. 🛠️ Simulateur de Rénovation ("What-If")
+Outil d'aide à la décision pour simuler l'impact de travaux sur le score Energy Star et les émissions :
+*   **Menu Travaux** : *Relampage LED (+8 pts)*, *Pompe à Chaleur (+15 pts)*, *Isolation (+10 pts)*, *Solaire (+12 pts)*.
+*   **Graphiques** : Visualisation "Avant/Après" de la réduction carbone et des économies potentielles.
+*   **Explicabilité** : Transparence sur les gains de points (basé sur les standards Portfolio Manager).
+
+#### 3. ⭐ Analyse d'Impact Energy Star
+*   **Podium de Performance** : Positionnement du bâtiment face à :
+    *   La *Moyenne des Bâtiments Similaires*.
+    *   L'*Objectif Zéro Carbone*.
+    *   Le *Top Performance*.
+*   **Jauge Interactive** : Visualisation claire de l'écart (GAP) et système de notation par étoiles.
+
+#### 4. 📅 Benchmark 2050 (Trajectoire Climatique)
+*   Projection temporelle des émissions face aux **Climate Targets** de Seattle.
+*   Visualisation de la **"Zone d'Effort"** (l'écart à combler) et des jalons réglementaires (2030, 2040, Neutralité 2050).
+
+---
+
+## ▶️ Installation et Utilisation
+
+Cloner le projet et installer les dépendances :
 ```bash
-# 1. Créer l'environnement virtuel (optionnel mais recommandé)
-python -m venv venv
-# Windows :
-.\venv\Scripts\activate
-# Mac/Linux :
-source venv/bin/activate
-
-# 2. Installer les librairies
 pip install -r requirements.txt
 ```
 
-### 3. Lancer l'Application
+Lancer l'application :
 ```bash
-python app.py
+python seattle_dashboard/app.py
 ```
-Le dashboard sera accessible sur **http://127.0.0.1:8050/**.
-
----
-
-## 📂 Structure du Projet
-
-- **`app.py`** : Code principal du Dashboard (Dash/Plotly).
-- **`utils/`** : Logique de prédiction et configuration.
-- **`assets/`** : Styles CSS et images.
-- **`requirements.txt`** : Liste des dépendances.
-
----
-*Projet Académique - 2026*
+*Accéder à l'interface via http://127.0.0.1:8050/*

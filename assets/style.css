@@ -1,0 +1,242 @@
+/* Seattle CO2 Dashboard - HYBRID THEME */
+
+:root {
+    /* --- DARK THEME (GitHub Style - VALIDÉ) --- */
+    --primary-color: #2ea043;
+    /* GitHub Green */
+    --bg-body: #0d1117;
+    /* Fond quasi noir */
+    --bg-sidebar: #161b22;
+    /* Sidebar légèrement plus claire */
+    --bg-card: #161b22;
+    /* Cartes: idem sidebar */
+
+    --text-color: #c9d1d9;
+    /* Blanc cassé (très lisible) */
+    --text-muted: #f8c009;
+    /* Gris moyen */
+
+    --border-color: #30363d;
+    /* Bordures subtiles */
+    --glass-border: #30363d;
+    --shadow-color: rgba(0, 0, 0, 0);
+    /* Pas d'ombre en dark, flat design */
+
+    --input-bg: #0d1117;
+    --card-radius: 6px;
+    --transition-speed: 0s;
+}
+
+[data-theme="light"] {
+    /* --- LIGHT THEME (Stripe-Inspired Premium) --- */
+    --primary-color: #059669;
+    /* Emerald 600 - Vert profond et élégant */
+    --bg-body: #dfc6d7ea;
+    /* Gris-bleu très pâle ("SaaS Background") */
+    --bg-sidebar: #534f4f;
+    /* Blanc pur */
+    --bg-card: #b1b1ac5e;
+    /* Blanc pur */
+
+    --text-color: #f5f5f8;
+    /* Dark Blue-Grey (Plus doux que le noir) */
+    --text-muted: #11df89;
+    /* Slate Grey pour les labels */
+
+    --border-color: #e3e8ee;
+    /* Bordures très fines et claires */
+    --glass-border: #e3e8ee;
+    --shadow-color: rgba(60, 66, 87, 0.08);
+    /* Ombre "Stripe" caractéristique (bleutée) */
+
+    --input-bg: #ffffff;
+}
+
+body {
+    background-color: var(--bg-body);
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* --- TYPO --- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.gradient-text {
+    /* Désactivé pour rester sobre */
+    background: none;
+    -webkit-text-fill-color: var(--text-color);
+    color: var(--text-color);
+}
+
+/* --- COMPONENTS --- */
+.glass-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--card-radius);
+    padding: 24px;
+    /* Ombre sofistiquée : légère en haut, principale en bas */
+    box-shadow: 0 2px 5px -1px var(--shadow-color), 0 1px 3px -1px var(--shadow-color);
+    color: var(--text-color);
+}
+
+.glass-card:hover {
+    border-color: var(--primary-color);
+    transform: none;
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    padding: 16px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.sidebar-nav .nav-link {
+    color: var(--text-color);
+    /* Couleur dynamique */
+    padding: 8px 16px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.sidebar-nav .nav-link:hover {
+    background: var(--border-color);
+    color: var(--text-color);
+    text-decoration: none;
+}
+
+.sidebar-nav .nav-link.active {
+    background: var(--primary-color);
+    color: #ffffff !important;
+    /* Toujours blanc sur bouton vert */
+    font-weight: 600;
+}
+
+/* Inputs */
+.form-control,
+.Select-control {
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
+    border-radius: 6px;
+    padding: 5px 12px;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(46, 160, 67, 0.4) !important;
+    background-color: var(--bg-card) !important;
+}
+
+/* Layout */
+#page-content {
+    margin-left: 280px;
+    padding: 32px;
+}
+
+/* Stats */
+.stat-value {
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* Tables */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th {
+    background-color: var(--bg-sidebar) !important;
+    color: var(--text-color) !important;
+    border-bottom: 2px solid var(--border-color) !important;
+    text-align: left !important;
+    font-weight: 700;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td {
+    background-color: var(--bg-card) !important;
+    color: var(--text-color) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    text-align: left !important;
+}
+
+/* Batch Prediction Table Colors */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table thead tr th {
+    background-color: #1e293b !important;
+    color: #ff9800 !important;
+    /* Orange vif */
+    font-weight: bold !important;
+    border: 1px solid #475569 !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table tbody tr td {
+    background-color: #0f172a !important;
+    color: #ffd700 !important;
+    /* Jaune vif */
+    border: 1px solid #334155 !important;
+}
+
+/* Force orange for ALL table headers */
+.dash-header-cell,
+.dash-header,
+th {
+    color: #ff9800 !important;
+}
+
+/* Green for prediction column - target last column */
+.dash-table-container table tbody tr td:last-child {
+    background-color: #1a3a2a !important;
+    color: #00ff00 !important;
+    font-weight: bold !important;
+}
+
+/* Batch Prediction Table - ID targeting */
+#batch-prediction-table thead th,
+#batch-prediction-table .dash-header,
+#batch-prediction-table .dash-header-cell,
+#batch-prediction-table th.dash-header,
+div#batch-prediction-table thead th {
+    color: #ff9800 !important;
+    /* ORANGE pour les noms de colonnes */
+}
+
+#batch-prediction-table tbody td:last-child {
+    background-color: #1a3a2a !important;
+    color: #00ff00 !important;
+    /* VERT pour la colonne de prédiction */
+    font-weight: bold !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+    }
+
+    #page-content {
+        margin-left: 0;
+        padding: 16px;
+    }
+}
