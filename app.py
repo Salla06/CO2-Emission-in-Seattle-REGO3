@@ -12,6 +12,7 @@ import os
 import json
 import warnings
 import traceback
+import functools
 
 # Suppress sklearn version warnings to prevent console clutter
 warnings.filterwarnings("ignore", message="Trying to unpickle estimator")
@@ -30,30 +31,54 @@ from utils.translations import TRANSLATIONS
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.SLATE, dbc.icons.FONT_AWESOME],
-    suppress_callback_exceptions=True
+    suppress_callback_exceptions=True,
+    use_pages=False  # DÉSACTIVER le chargement automatique du dossier pages/
 )
+
+# Custom HTML Template to prevent browser auto-translation
+app.index_string = '''
+<!DOCTYPE html>
+<html lang="fr" translate="no">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="google" content="notranslate">
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+    </head>
+    <body class="notranslate">
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 server = app.server
 
 # --- COMPONENTS ---
 
-def get_sidebar_content(lang):
-    t = TRANSLATIONS[lang]
-    return html.Div(id="sidebar-content-toggleable", children=[
+def get_static_sidebar():
+    # Initial content in French (default)
+    return html.Div(children=[
         html.Div([
             html.I(className="fas fa-city me-2", style={"fontSize": "1.5rem", "color": "#00fa9a"}),
             html.H2("Seattle Dashboard", className="d-inline", style={"color": "#00fa9a", "fontSize": "1.5rem"})
         ], className="text-center mb-3", style={"marginTop": "60px"}),
-        html.P(t['subtitle'], className="text-muted small text-center mb-4"),
+        html.P("Tableau de bord de performance énergétique", id="sidebar-subtitle", className="text-muted small text-center mb-4"),
         html.Hr(),
         dbc.Nav(
             [
-                dbc.NavLink([html.I(className="fas fa-chart-pie me-2"), t['nav_insights']], href="/", active="exact"),
-                dbc.NavLink([html.I(className="fas fa-search-plus me-2"), t['nav_analysis']], href="/analysis", active="exact"),
-                dbc.NavLink([html.I(className="fas fa-brain me-2"), t['nav_modeling']], href="/modeling", active="exact"),
-                dbc.NavLink([html.I(className="fas fa-magic me-2"), t['nav_predict']], href="/predict", active="exact"),
-                dbc.NavLink([html.I(className="fas fa-tools me-2"), t['nav_sim']], href="/sim", active="exact"),
-                dbc.NavLink([html.I(className="fas fa-star me-2"), t['nav_star']], href="/star", active="exact"),
-                dbc.NavLink([html.I(className="fas fa-check-circle me-2"), t['nav_2050']], href="/2050", active="exact"),
+                dbc.NavLink([html.I(className="fas fa-chart-pie me-2"), "Vue d'ensemble"], href="/", active="exact", id="nav-home"),
+                dbc.NavLink([html.I(className="fas fa-search-plus me-2"), "Analyse"], href="/analysis", active="exact", id="nav-analysis"),
+                dbc.NavLink([html.I(className="fas fa-brain me-2"), "Modélisation"], href="/modeling", active="exact", id="nav-modeling"),
+                dbc.NavLink([html.I(className="fas fa-magic me-2"), "Prédiction"], href="/predict", active="exact", id="nav-predict"),
+                dbc.NavLink([html.I(className="fas fa-tools me-2"), "Simulateur"], href="/sim", active="exact", id="nav-sim"),
+                dbc.NavLink([html.I(className="fas fa-star me-2"), "Energy Star"], href="/star", active="exact", id="nav-star"),
+                dbc.NavLink([html.I(className="fas fa-check-circle me-2"), "Objectif 2050"], href="/2050", active="exact", id="nav-2050"),
             ],
             vertical=True,
             pills=True,
@@ -117,7 +142,9 @@ header_static = html.Div([
 
 app.layout = html.Div(id="theme-wrapper-div", children=[
     dcc.Store(id="theme-store", storage_type="local", data="dark"),
-    dcc.Location(id="url"),
+    dcc.Location(id="url", refresh=False),
+    dcc.Store(id="last-nav-timestamp", storage_type="memory", data=0),
+    html.Div(id="nav-debug-signals", style={"display": "none"}),
     dcc.Store(id="stored-building-features", storage_type="session", data={
         'PropertyGFATotal': 50000,
         'YearBuilt': 1980,
@@ -134,12 +161,12 @@ app.layout = html.Div(id="theme-wrapper-div", children=[
     }),
     dcc.Store(id="baseline-prediction", storage_type="session"),
     dcc.Store(id="current-prediction", storage_type="session"),
-    dcc.Store(id="sidebar-toggle-stored", data=True, storage_type="local"),
+    dcc.Store(id="sidebar-toggle-stored", data=False, storage_type="local"),
     header_static,
     html.Div([
-        # Dynamic Sidebar Content (Fixed, no toggle button)
-        html.Div(id="sidebar-info-container")
-    ], id="sidebar-container", className="sidebar", style={"zIndex": 5000}), 
+        # Static Sidebar Content
+        get_static_sidebar()
+    ], id="sidebar-container", className="sidebar", style={"zIndex": 5000, "backgroundColor": "#161b22"}), 
     content,
     
     # Modal for EDA Images
@@ -272,7 +299,7 @@ def _layout_predict_impl(lang):
                         options=[{'label': b, 'value': b} for b in BUILDING_TYPES], 
                         value='Office', 
                         className="mb-3",
-                        style={'backgroundColor': '#0f172a', 'color': '#ffd700', 'fontWeight': 'bold'}
+                        style={'backgroundColor': '#0f172a', 'color': '#00ff00', 'fontWeight': 'bold'}
                     ),
 
                     html.Label(t['input_nbh']),
@@ -281,14 +308,14 @@ def _layout_predict_impl(lang):
                         options=[{'label': n, 'value': n} for n in sorted(NEIGHBORHOOD_STATS.keys())], 
                         value='Downtown', 
                         className="mb-3",
-                        style={'backgroundColor': '#0f172a', 'color': '#ffd700', 'fontWeight': 'bold'}
+                        style={'backgroundColor': '#0f172a', 'color': '#00ff00', 'fontWeight': 'bold'}
                     ),
                     
                     html.Label(t['input_sqft']),
-                    dcc.Input(id="in-surface", type="number", value=50000, className="form-control mb-3", style={"backgroundColor": "#0f172a", "color": "#ffd700", "fontWeight": "bold", "borderColor": "#334155"}),
+                    dcc.Input(id="in-surface", type="number", value=50000, className="form-control mb-3", style={"backgroundColor": "#0f172a", "color": "#00ff00", "fontWeight": "bold", "borderColor": "#334155"}),
 
                     html.Label(t['input_floors']),
-                    dcc.Input(id="in-floors", type="number", value=1, min=1, className="form-control mb-3", style={"backgroundColor": "#0f172a", "color": "#ffd700", "fontWeight": "bold", "borderColor": "#334155"}),
+                    dcc.Input(id="in-floors", type="number", value=1, min=1, className="form-control mb-3", style={"backgroundColor": "#0f172a", "color": "#00ff00", "fontWeight": "bold", "borderColor": "#334155"}),
                     
                     html.Label(t['input_year']),
                     dcc.Slider(id="in-year", min=1900, max=2023, step=1, value=1980, marks={i: str(i) for i in range(1900, 2030, 20)}, className="mb-2"),
@@ -296,9 +323,9 @@ def _layout_predict_impl(lang):
 
                     html.Div([
                         html.Label(t['input_es']),
-                        dbc.Button("💡 Suggérer" if lang=='FR' else "💡 Suggest", id="btn-smart-es", color="link", size="sm", className="p-0 ms-2", style={"textDecoration": "none", "fontSize": "0.8rem"})
+                        dbc.Button("💡 Suggérer" if lang=='FR' else "💡 Suggest", id="btn-smart-es", n_clicks=0, color="link", size="sm", className="p-0 ms-2", style={"textDecoration": "none", "fontSize": "0.8rem"})
                     ], className="d-flex align-items-center mb-1"),
-                    dcc.Input(id="in-es", type="number", value=60, min=0, max=100, className="form-control mb-1", style={"backgroundColor": "#0f172a", "color": "#ffd700", "fontWeight": "bold", "borderColor": "#334155"}),
+                    dcc.Input(id="in-es", type="number", value=60, min=0, max=100, className="form-control mb-1", style={"backgroundColor": "#0f172a", "color": "#00ff00", "fontWeight": "bold", "borderColor": "#334155"}),
                     html.Div(id="smart-es-note", className="small text-muted mb-3"),
                     html.Div(id="es-error-msg", className="text-danger small fw-bold mb-2"),
 
@@ -314,7 +341,7 @@ def _layout_predict_impl(lang):
                         className="mb-4"
                     ),
 
-                    dbc.Button(t['btn_predict'], id="btn-predict", color="primary", className="w-100", style={"backgroundColor": "#1e293b", "borderColor": "#00fa9a", "borderWidth": "2px", "color": "#00fa9a", "fontWeight": "bold", "fontSize": "1.1rem"}),
+                    dbc.Button(t['btn_predict'], id="btn-predict", n_clicks=0, color="primary", className="w-100", style={"backgroundColor": "#1e293b", "borderColor": "#00fa9a", "borderWidth": "2px", "color": "#00fa9a", "fontWeight": "bold", "fontSize": "1.1rem"}),
                 ], className="glass-card mb-4")
             ], width=5),
             
@@ -344,7 +371,7 @@ def _layout_predict_impl(lang):
                     html.Hr(),
                     html.H5(t['pred_xai'], className="mb-3 mt-4"),
                     dcc.Graph(id="xai-graph", style={"height": "300px"}),
-                    dbc.Button([html.I(className="fas fa-file-pdf me-2"), t['pred_pdf_btn']], id="btn-download-pdf", color="success", className="w-100 mt-4"),
+                    dbc.Button([html.I(className="fas fa-file-pdf me-2"), t['pred_pdf_btn']], id="btn-download-pdf", n_clicks=0, color="success", className="w-100 mt-4"),
                     dcc.Download(id="download-pdf-obj")
                 ], className="glass-card mb-4")
             ], width=7),
@@ -587,6 +614,7 @@ def layout_analysis(lang):
     ], style={"paddingBottom": "100px"})
 
 # --- Helper pour charger les données ---
+@functools.lru_cache(maxsize=1)
 def load_full_data():
     try:
         # Check files existence
@@ -655,7 +683,10 @@ def update_eda_graphs(sx, sy, bx, by):
     fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
 
     # 3. Stats Table
-    stats = df[[sy, by]].describe().reset_index()
+    # 3. Stats Table
+    # Eviter les colonnes dupliquées si sy == by
+    cols_to_desc = list(set([sy, by]))
+    stats = df[cols_to_desc].describe().reset_index()
     stats_table = dash_table.DataTable(
         data=stats.to_dict('records'),
         columns=[{"name": i, "id": i} for i in stats.columns],
@@ -666,18 +697,26 @@ def update_eda_graphs(sx, sy, bx, by):
     return fig_scatter, fig_box, stats_table
 
 # --- PAGE 0.2: MODÉLISATION ---
+@functools.lru_cache(maxsize=1)
+def load_model_metrics():
+    try:
+        csv_path = os.path.join(RESULTS_DIR, 'metrics_comparison.json')
+        if os.path.exists(csv_path):
+            return pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"Erreur chargement metrics: {e}")
+    return None
+
 def _layout_modeling_impl(lang):
     t = TRANSLATIONS[lang]
     
-    # Chargement des résultats complets (CSV converti en liste de dicts pour l'affichage)
-    # Structure attendue du CSV : Modèle, R² Test, RMSE Log, RMSE Original, MAPE, CV R² Mean, Overfitting
+    # Chargement des résultats (Cached)
     models_data = []
     best_model = {}
     
     try:
-        csv_path = os.path.join(RESULTS_DIR, 'metrics_comparison.json') # C'est en fait le CSV copié
-        if os.path.exists(csv_path):
-            df_res = pd.read_csv(csv_path)
+        df_res = load_model_metrics()
+        if df_res is not None and not df_res.empty:
             # Trier par R2 décroissant
             df_res = df_res.sort_values(by="R² Test", ascending=False)
             models_data = df_res.to_dict('records')
@@ -787,7 +826,7 @@ def _layout_modeling_impl(lang):
             ]),
             "images": [
                 {"src": "/assets/model_figures/final_comparison_optimized.png", "title": t['mod_img_comparison'], "width": 12},
-                {"src": "/assets/model_figures/comparison_m1_m2.png", "title": t['mod_img_m1_m2'], "width": 12}
+                {"src": "/assets/model_figures/comparison_rigorous.png", "title": "Comparaison Rigoureuse M1 vs M2" if lang=='FR' else "Rigorous M1 vs M2 Comparison", "width": 12}
             ]
         },
         {
@@ -810,8 +849,10 @@ def _layout_modeling_impl(lang):
             "title": t['mod_resid_title'],
             "desc": t['mod_resid_desc'],
             "images": [
-                {"src": "/assets/model_figures/predictions_m2.png", "title": t['mod_img_pred'], "width": 12},
-                {"src": "/assets/model_figures/residuals_m2.png", "title": t['mod_img_resid'], "width": 12}
+                {"src": "/assets/model_figures/predictions_m1.png", "title": "Prédictions M1" if lang=='FR' else "M1 Predictions", "width": 12},
+                {"src": "/assets/model_figures/predictions_m2.png", "title": "Prédictions M2" if lang=='FR' else "M2 Predictions", "width": 12},
+                {"src": "/assets/model_figures/residuals_m1.png", "title": "Résidus M1" if lang=='FR' else "M1 Residuals", "width": 12},
+                {"src": "/assets/model_figures/residuals_m2.png", "title": "Résidus M2" if lang=='FR' else "M2 Residuals", "width": 12}
             ]
         }
     ]
@@ -1195,7 +1236,7 @@ def update_star_page(lang, pathname, features, prediction):
                                     html.Li("⭐⭐⭐⭐ : Émissions < 80% de la moyenne (Très bon)"),
                                     html.Li("⭐⭐⭐ : Dans la moyenne (Standard)"),
                                     html.Li("⭐⭐ : Émissions < 130% de la moyenne (Peut mieux faire)"),
-                                    html.Li("⭐ : Émissions > 130% de la moyenne (Énergivore)"),
+                                    html.Li("⭐ : Émissions > 130% de la moyenne"),
                                 ], className="small text-muted mb-0")
                             ], title=t['star_accordion_title'], item_id="info-stars")
                         ], start_collapsed=True, flush=True)
@@ -1349,22 +1390,54 @@ def update_benchmark_page(lang, pathname, stored_data, last_pred, baseline_val):
 
 # --- GLOBAL CALLBACKS ---
 
-@app.callback(Output("sidebar-info-container", "children"), [Input("lang-switch", "value")])
-def update_lang_nav(lang):
-    return get_sidebar_content(lang or 'FR')
+@app.callback(
+    [Output("sidebar-subtitle", "children"),
+     Output("nav-home", "children"), Output("nav-analysis", "children"),
+     Output("nav-modeling", "children"), Output("nav-predict", "children"),
+     Output("nav-sim", "children"), Output("nav-star", "children"),
+     Output("nav-2050", "children")],
+    [Input("lang-switch", "value")]
+)
+def update_sidebar_labels(lang):
+    t = TRANSLATIONS[lang or 'FR']
+    return (
+        t['subtitle'],
+        [html.I(className="fas fa-chart-pie me-2"), t['nav_insights']],
+        [html.I(className="fas fa-search-plus me-2"), t['nav_analysis']],
+        [html.I(className="fas fa-brain me-2"), t['nav_modeling']],
+        [html.I(className="fas fa-magic me-2"), t['nav_predict']],
+        [html.I(className="fas fa-tools me-2"), t['nav_sim']],
+        [html.I(className="fas fa-star me-2"), t['nav_star']],
+        [html.I(className="fas fa-check-circle me-2"), t['nav_2050']]
+    )
 
-@app.callback(Output("page-content", "children"), [Input("url", "pathname"), Input("lang-switch", "value"), Input("theme-store", "data")])
-def render_page_content(pathname, lang, theme):
+@app.callback(
+    [Output("page-content", "children"), Output("last-nav-timestamp", "data")],
+    [Input("url", "pathname"), Input("lang-switch", "value"), Input("theme-store", "data")],
+    [State("last-nav-timestamp", "data")]
+)
+def render_page_content(pathname, lang, theme, last_timestamp):
+    import time
+    current_time = time.time() * 1000  # Convert to milliseconds
+    
+
+    
+    print(f"✓ ROUTING to {pathname} (allowed)")
+    
     lang = lang or 'FR'
     theme = theme or 'dark'
-    if pathname == "/": return layout_insights(lang, theme)
-    elif pathname == "/analysis": return layout_analysis(lang)
-    elif pathname == "/modeling": return layout_modeling(lang)
-    elif pathname == "/predict": return layout_predict(lang)
-    elif pathname == "/sim": return layout_sim(lang)
-    elif pathname == "/star": return layout_star(lang)
-    elif pathname == "/2050": return layout_benchmark(lang)
-    return html.Div([html.H1("404", className="text-danger"), html.P(f"Chemin {pathname} inconnu.")], className="p-5 text-center")
+    
+    page_content = None
+    if pathname == "/": page_content = layout_insights(lang, theme)
+    elif pathname == "/analysis": page_content = layout_analysis(lang)
+    elif pathname == "/modeling": page_content = layout_modeling(lang)
+    elif pathname == "/predict": page_content = layout_predict(lang)
+    elif pathname == "/sim": page_content = layout_sim(lang)
+    elif pathname == "/star": page_content = layout_star(lang)
+    elif pathname == "/2050": page_content = layout_benchmark(lang)
+    else: page_content = html.Div([html.H1("404", className="text-danger"), html.P(f"Chemin {pathname} inconnu.")], className="p-5 text-center")
+    
+    return page_content, current_time
 
 @app.callback(
     [Output("prediction-output", "children"), 
@@ -1382,99 +1455,106 @@ def render_page_content(pathname, lang, theme):
     prevent_initial_call=True
 )
 def update_prediction(n_clicks, b_type, nbh, surface, floors, year, es, energy_sources, lang, baseline):
-    if not n_clicks: 
-        return "", "", "", go.Figure().update_layout(template="plotly_dark"), dash.no_update, dash.no_update, dash.no_update
-    
-    lang = lang or 'FR'
-    
-    # === VALIDATION DES INPUTS ===
-    errors = []
-    
-    # Validation Surface
-    if surface is None or surface <= 0:
-        errors.append("La surface doit être supérieure à 0" if lang == 'FR' else "Surface must be greater than 0")
-    elif surface > 10_000_000:  # 10M sqft = limite réaliste
-        errors.append("Surface trop grande (max 10M sqft)" if lang == 'FR' else "Surface too large (max 10M sqft)")
-    
-    # Validation Étages
-    if floors is None or floors < 1:
-        errors.append("Le nombre d'étages doit être au moins 1" if lang == 'FR' else "Number of floors must be at least 1")
-    elif floors > 200:  # Limite réaliste
-        errors.append("Nombre d'étages trop élevé (max 200)" if lang == 'FR' else "Too many floors (max 200)")
-    
-    # Validation Année
-    if year is None or year < 1800:
-        errors.append("Année de construction invalide (min 1800)" if lang == 'FR' else "Invalid year (min 1800)")
-    elif year > 2026:
-        errors.append("Année de construction ne peut pas être dans le futur" if lang == 'FR' else "Year cannot be in the future")
-    
-    # Validation Energy Star
-    if es is not None and (es < 0 or es > 100):
-        errors.append("Score Energy Star doit être entre 0 et 100" if lang == 'FR' else "Energy Star score must be between 0 and 100")
-    
-    # Si erreurs, retourner message d'erreur
-    if errors:
-        error_msg = html.Div([
-            html.H4("⚠️ Erreurs de Validation" if lang == 'FR' else "⚠️ Validation Errors", className="text-danger"),
-            html.Ul([html.Li(e, className="text-warning") for e in errors])
-        ])
-        return error_msg, "", "", go.Figure().update_layout(template="plotly_dark"), dash.no_update, dash.no_update, dash.no_update
-    
-    es_val = float(es) if es is not None else 60
-    
-    # Localisation dynamique basée sur le quartier
-    nbh_data = NEIGHBORHOOD_STATS.get(nbh, NEIGHBORHOOD_STATS['Downtown'])
-    
-    features = {
-        'PrimaryPropertyType': b_type, 
-        'Neighborhood': nbh,
-        'PropertyGFATotal': surface, 
-        'NumberofFloors': floors,
-        'YearBuilt': year, 
-        'ENERGYSTARScore': es_val,
-        'Latitude': nbh_data['lat'],
-        'Longitude': nbh_data['lon'],
-        'Has_Gas': "gas" in (energy_sources or []),
-        'Has_Steam': "steam" in (energy_sources or [])
-    }
-    
-    val, explanation = predict_co2(features)
-    
-    # XAI Graph
-    df_xai = pd.DataFrame(explanation)
-    df_xai['color'] = df_xai['impact'].apply(lambda x: '#ff4d4d' if x > 0 else '#00fa9a')
-    
-    fig_xai = go.Figure(go.Bar(
-        x=df_xai['impact'], y=df_xai['feature'], orientation='h', marker_color=df_xai['color']
-    ))
-    fig_xai.update_layout(
-        template="plotly_dark", 
-        paper_bgcolor='rgba(0,0,0,0)', 
-        plot_bgcolor='rgba(0,0,0,0)', 
-        margin=dict(l=0, r=20, t=30, b=40), 
-        yaxis=dict(autorange="reversed"),
-        # Ajout Légende via Annotations
-        annotations=[
-            dict(
-                x=0, y=1.1, xref='paper', yref='paper',
-                text="<span style='color:#ff4d4d'>■ Augmente</span> / <span style='color:#00fa9a'>■ Réduit</span> les émissions",
-                showarrow=False,
-                font=dict(size=12)
-            )
-        ]
-    )
-    
-    # Badge de fiabilité dynamique
-    rel = get_reliability_info(val, features) 
-    badge = dbc.Badge(rel, color="success" if rel=="Élevé" else "warning", className="ms-2")
-    
-    # Recommandations
-    recos = get_decarbonization_recommendations(features)
-    decarbon_ui = html.Div([dbc.Card(html.Div(r, className="p-2"), className="mb-2 glass-card") for r in recos])
+    try:
+        if not n_clicks: 
+            return "", "", "", go.Figure().update_layout(template="plotly_dark"), dash.no_update, dash.no_update, dash.no_update
+        
+        lang = lang or 'FR'
+        
+        # === VALIDATION DES INPUTS ===
+        errors = []
+        
+        # Validation Surface
+        if surface is None or surface <= 0:
+            errors.append("La surface doit être supérieure à 0" if lang == 'FR' else "Surface must be greater than 0")
+        elif surface > 10_000_000:  # 10M sqft = limite réaliste
+            errors.append("Surface trop grande (max 10M sqft)" if lang == 'FR' else "Surface too large (max 10M sqft)")
+        
+        # Validation Étages
+        if floors is None or floors < 1:
+            errors.append("Le nombre d'étages doit être au moins 1" if lang == 'FR' else "Number of floors must be at least 1")
+        elif floors > 200:  # Limite réaliste
+            errors.append("Nombre d'étages trop élevé (max 200)" if lang == 'FR' else "Too many floors (max 200)")
+        
+        # Validation Année
+        if year is None or year < 1800:
+            errors.append("Année de construction invalide (min 1800)" if lang == 'FR' else "Invalid year (min 1800)")
+        elif year > 2026:
+            errors.append("Année de construction ne peut pas être dans le futur" if lang == 'FR' else "Year cannot be in the future")
+        
+        # Validation Energy Star
+        if es is not None and (es < 0 or es > 100):
+            errors.append("Score Energy Star doit être entre 0 et 100" if lang == 'FR' else "Energy Star score must be between 0 and 100")
+        
+        # Si erreurs, retourner message d'erreur
+        if errors:
+            error_msg = html.Div([
+                html.H4("⚠️ Erreurs de Validation" if lang == 'FR' else "⚠️ Validation Errors", className="text-danger"),
+                html.Ul([html.Li(e, className="text-warning") for e in errors])
+            ])
+            return error_msg, "", "", go.Figure().update_layout(template="plotly_dark"), dash.no_update, dash.no_update, dash.no_update
+        
+        es_val = float(es) if es is not None else 60
+        
+        # Localisation dynamique basée sur le quartier
+        nbh_data = NEIGHBORHOOD_STATS.get(nbh, NEIGHBORHOOD_STATS['Downtown'])
+        
+        features = {
+            'PrimaryPropertyType': b_type, 
+            'Neighborhood': nbh,
+            'PropertyGFATotal': surface, 
+            'NumberofFloors': floors,
+            'YearBuilt': year, 
+            'ENERGYSTARScore': es_val,
+            'Latitude': nbh_data['lat'],
+            'Longitude': nbh_data['lon'],
+            'Has_Gas': "gas" in (energy_sources or []),
+            'Has_Steam': "steam" in (energy_sources or [])
+        }
+        
+        val, explanation = predict_co2(features)
+        
+        # XAI Graph
+        df_xai = pd.DataFrame(explanation)
+        df_xai['color'] = df_xai['impact'].apply(lambda x: '#ff4d4d' if x > 0 else '#00fa9a')
+        
+        fig_xai = go.Figure(go.Bar(
+            x=df_xai['impact'], y=df_xai['feature'], orientation='h', marker_color=df_xai['color']
+        ))
+        fig_xai.update_layout(
+            template="plotly_dark", 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            margin=dict(l=0, r=20, t=30, b=40), 
+            yaxis=dict(autorange="reversed"),
+            # Ajout Légende via Annotations
+            annotations=[
+                dict(
+                    x=0, y=1.1, xref='paper', yref='paper',
+                    text="<span style='color:#ff4d4d'>■ Augmente</span> / <span style='color:#00fa9a'>■ Réduit</span> les émissions",
+                    showarrow=False,
+                    font=dict(size=12)
+                )
+            ]
+        )
+        
+        # Badge de fiabilité dynamique
+        rel = get_reliability_info(val, features) 
+        badge = dbc.Badge(rel, color="success" if rel=="Élevé" else "warning", className="ms-2")
+        
+        # Recommandations
+        recos = get_decarbonization_recommendations(features)
+        decarbon_ui = html.Div([dbc.Card(html.Div(r, className="p-2"), className="mb-2 glass-card") for r in recos])
 
-    new_baseline = val if baseline is None else baseline
-    
-    return f"{val:.2f}", badge, decarbon_ui, fig_xai, features, val, new_baseline
+        new_baseline = val if baseline is None else baseline
+        
+        return f"{val:.2f}", badge, decarbon_ui, fig_xai, features, val, new_baseline
+
+    except Exception as e:
+        print(f"CRITICAL PREDICTION ERROR: {e}")
+        traceback.print_exc()
+        err_div = html.Div([html.H4("⚠️ Erreur Interne", className="text-danger"), html.P(str(e))])
+        return err_div, "", "", go.Figure(), dash.no_update, dash.no_update, dash.no_update
 
 @app.callback(
     Output("download-pdf-obj", "data"),
@@ -1728,115 +1808,127 @@ def sync_inputs_with_store(pathname, stored_data):
     [Input("map-filter-nbh", "value")]
 )
 def update_kpis(selected_nbh):
-    if not selected_nbh:
-        return (
-            f"{CITY_WIDE_STATS['total_buildings']}",
-            f"{CITY_WIDE_STATS['mean_co2']} T",
-            f"{CITY_WIDE_STATS['avg_energy_star']}"
-        )
-    
-    selected_stats = [NEIGHBORHOOD_STATS[n] for n in selected_nbh if n in NEIGHBORHOOD_STATS]
-    if not selected_stats: return "0", "0 T", "0"
+    try:
+        if not selected_nbh:
+            return (
+                f"{CITY_WIDE_STATS['total_buildings']}",
+                f"{CITY_WIDE_STATS['mean_co2']} T",
+                f"{CITY_WIDE_STATS['avg_energy_star']}"
+            )
+        
+        selected_stats = [NEIGHBORHOOD_STATS[n] for n in selected_nbh if n in NEIGHBORHOOD_STATS]
+        if not selected_stats: return "0", "0 T", "0"
 
-    count = sum(s['count'] for s in selected_stats)
-    total_co2 = sum(s['avg_co2'] * s['count'] for s in selected_stats)
-    # Mock aggregation for Energy Star as it's not in neighborhood stats
-    avg_estar = 65 
+        count = sum(s['count'] for s in selected_stats)
+        total_co2 = sum(s['avg_co2'] * s['count'] for s in selected_stats)
+        # Mock aggregation for Energy Star as it's not in neighborhood stats
+        avg_estar = 65 
 
-    avg_co2 = total_co2 / count if count else 0
+        avg_co2 = total_co2 / count if count else 0
 
-    return f"{int(count)}", f"{avg_co2:.1f} T", f"{int(avg_estar)}"
+        return f"{int(count)}", f"{avg_co2:.1f} T", f"{int(avg_estar)}"
+    except Exception as e:
+        print(f"Error in update_kpis: {e}")
+        return "N/A", "N/A", "N/A"
 
 @app.callback(
     Output("insights-map", "figure"),
     [Input("map-filter-nbh", "value"), Input("lang-switch", "value")]
 )
 def update_insights_map(selected_nbh, lang):
-    lang = lang or 'FR'
-    rows = []
-    for name, stats in NEIGHBORHOOD_STATS.items():
-        if not selected_nbh or name in selected_nbh:
-            rows.append({
-                'Neighborhood': name,
-                'lat': stats['lat'], 'lon': stats['lon'],
-                'emissions': stats['avg_co2']
-            })
-    df_map = pd.DataFrame(rows)
-    
-    if df_map.empty: return go.Figure().update_layout(template="plotly_dark", title="Aucune donnée")
+    try:
+        lang = lang or 'FR'
+        rows = []
+        for name, stats in NEIGHBORHOOD_STATS.items():
+            if not selected_nbh or name in selected_nbh:
+                rows.append({
+                    'Neighborhood': name,
+                    'lat': stats['lat'], 'lon': stats['lon'],
+                    'emissions': stats['avg_co2']
+                })
+        df_map = pd.DataFrame(rows)
+        
+        if df_map.empty: return go.Figure().update_layout(template="plotly_dark", title="Aucune donnée")
 
-    fig_map = px.scatter_map(df_map, lat="lat", lon="lon", size="emissions", color="emissions",
-                               hover_name="Neighborhood", 
-                               color_continuous_scale=px.colors.sequential.Viridis, 
-                               size_max=35, zoom=10.2, map_style="open-street-map")
-    fig_map.update_layout(
-        margin={"r":0,"t":0,"l":0,"b":0}, 
-        paper_bgcolor='rgba(0,0,0,0)', 
-        coloraxis_colorbar=dict(title="CO2 (T)", bgcolor='rgba(0,0,0,0.4)')
-    )
-    return fig_map
+        fig_map = px.scatter_map(df_map, lat="lat", lon="lon", size="emissions", color="emissions",
+                                   hover_name="Neighborhood", 
+                                   color_continuous_scale=px.colors.sequential.Viridis, 
+                                   size_max=35, zoom=10.2, map_style="open-street-map")
+        fig_map.update_layout(
+            margin={"r":0,"t":0,"l":0,"b":0}, 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            coloraxis_colorbar=dict(title="CO2 (T)", bgcolor='rgba(0,0,0,0.4)')
+        )
+        return fig_map
+    except Exception as e:
+        print(f"Error in update_insights_map: {e}")
+        return go.Figure()
 
 @app.callback(
     [Output("insights-bar-chart", "figure"), Output("insights-pie-chart", "figure")],
     [Input("map-filter-nbh", "value")]
 )
 def update_insights_charts(selected_nbh):
-    df = load_full_data()
-    if df.empty: return go.Figure(), go.Figure()
+    try:
+        df = load_full_data()
+        if df.empty: return go.Figure(), go.Figure()
 
-    # Filtre quartier
-    if selected_nbh:
-        # Filtrage insensible à la casse
-        selected_lower = [s.lower() for s in selected_nbh]
-        df = df[df['Neighborhood'].astype(str).str.lower().isin(selected_lower)]
+        # Filtre quartier
+        if selected_nbh:
+            # Filtrage insensible à la casse
+            selected_lower = [s.lower() for s in selected_nbh]
+            df = df[df['Neighborhood'].astype(str).str.lower().isin(selected_lower)]
 
-    # 1. Bar Chart: Emissions moyennes par type
-    if 'BuildingType' in df.columns and 'TotalGHGEmissions' in df.columns:
-        avg_emissions = df.groupby('BuildingType')['TotalGHGEmissions'].mean().reset_index()
-        avg_emissions = avg_emissions.sort_values('TotalGHGEmissions', ascending=True) # Top pollueurs en bas
+        # 1. Bar Chart: Emissions moyennes par type
+        if 'BuildingType' in df.columns and 'TotalGHGEmissions' in df.columns:
+            avg_emissions = df.groupby('BuildingType')['TotalGHGEmissions'].mean().reset_index()
+            avg_emissions = avg_emissions.sort_values('TotalGHGEmissions', ascending=True) # Top pollueurs en bas
 
-        fig_bar = px.bar(
-            avg_emissions, 
-            x='TotalGHGEmissions', 
-            y='BuildingType',
-            orientation='h',
-            color='BuildingType',
-            template="plotly_dark",
-            title=None
-        )
-        fig_bar.update_layout(
-            margin=dict(l=0, r=0, t=0, b=0),
-            paper_bgcolor='rgba(0,0,0,0)', 
-            plot_bgcolor='rgba(0,0,0,0)',
-            xaxis_title="CO2 Moyen (T)",
-            yaxis_title=None,
-            showlegend=False
-        )
-    else:
-        fig_bar = go.Figure()
+            fig_bar = px.bar(
+                avg_emissions, 
+                x='TotalGHGEmissions', 
+                y='BuildingType',
+                orientation='h',
+                color='BuildingType',
+                template="plotly_dark",
+                title=None
+            )
+            fig_bar.update_layout(
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)',
+                xaxis_title="CO2 Moyen (T)",
+                yaxis_title=None,
+                showlegend=False
+            )
+        else:
+            fig_bar = go.Figure()
 
-    # 2. Pie Chart: Répartition
-    if 'BuildingType' in df.columns:
-        res = df['BuildingType'].value_counts().reset_index()
-        res.columns = ['BuildingType', 'Count']
-        
-        fig_pie = px.pie(
-            res, 
-            values='Count', 
-            names='BuildingType',
-            template="plotly_dark",
-            hole=0.4
-        )
-        fig_pie.update_layout(
-            margin=dict(l=0, r=0, t=0, b=0),
-            paper_bgcolor='rgba(0,0,0,0)',
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
-        )
-    else:
-        fig_pie = go.Figure()
+        # 2. Pie Chart: Répartition
+        if 'BuildingType' in df.columns:
+            res = df['BuildingType'].value_counts().reset_index()
+            res.columns = ['BuildingType', 'Count']
+            
+            fig_pie = px.pie(
+                res, 
+                values='Count', 
+                names='BuildingType',
+                template="plotly_dark",
+                hole=0.4
+            )
+            fig_pie.update_layout(
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor='rgba(0,0,0,0)',
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+            )
+        else:
+            fig_pie = go.Figure()
 
-    return fig_bar, fig_pie
+        return fig_bar, fig_pie
+    except Exception as e:
+        print(f"Error in update_insights_charts: {e}")
+        return go.Figure(), go.Figure()
 
 
 # --- SIDEBAR TOGGLE CALLBACK ---
@@ -1847,20 +1939,42 @@ def update_insights_charts(selected_nbh):
     [Input("sidebar-toggle-btn", "n_clicks")],
     [State("sidebar-toggle-stored", "data")]
 )
-def toggle_sidebar(n_clicks, is_open):
-    # Gestion du premier chargement
-    if n_clicks is None:
-        return {"zIndex": 5000}, {"marginLeft": "300px", "transition": "margin-left 0.3s ease"}, True
+def toggle_sidebar(n_btn, is_open):
+    ctx = callback_context
+    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
-    # Inversion de l'état
-    new_state = not is_open
+    # Toggle uniquement avec le bouton
+    if triggered_id == "sidebar-toggle-btn":
+        is_open = not is_open
     
-    if new_state:
-        # Sidebar visible
-        return {"zIndex": 5000}, {"marginLeft": "300px", "transition": "margin-left 0.3s ease"}, True
+    # Ensure boolean
+    is_open = bool(is_open)
+    
+    if is_open:
+        # VISIBLE
+        return {
+            "zIndex": 5000, 
+            "width": "280px", 
+            "left": "0", 
+            "display": "block",
+            "backgroundColor": "#161b22", 
+            "position": "fixed",
+            "top": 0,
+            "bottom": 0,
+            "height": "100vh",
+            "overflowY": "auto"
+        }, {
+            "marginLeft": "280px",
+            "transition": "margin-left 0.3s ease"
+        }, True
     else:
-        # Sidebar cachée
-        return {"zIndex": 5000, "transform": "translateX(-100%)", "transition": "transform 0.3s ease"}, {"marginLeft": "0", "transition": "margin-left 0.3s ease"}, False
+        # HIDDEN
+        return {
+            "display": "none"
+        }, {
+            "marginLeft": "0", 
+            "transition": "margin-left 0.3s ease"
+        }, False
 
 
 # --- THEME CALLBACK ---
