@@ -735,9 +735,13 @@ def _layout_modeling_impl(lang):
     # --- 1. BANDEAU MEILLEUR MODÈLE ---
     best_model_banner = dbc.Alert([
         html.H4(f"{t['mod_best_title']} {best_model.get('Modèle', 'N/A')}", className="alert-heading"),
-        html.P(f"{t['mod_best_perf']} {best_model.get('R² Test', 0):.4f} {t['mod_best_mape']} {float(best_model.get('MAPE', 0))*100:.1f}%. {t['mod_best_desc']}"),
+        html.P(f"{t['mod_best_perf']} {best_model.get('R² Test', 0):.4f} {t['mod_best_mape']} {float(best_model.get('MAPE', 0)):.1f}%. {t['mod_best_desc']}"),
         html.Hr(),
-        html.P(t['mod_best_usage'], className="mb-0 small")
+        html.P([
+            html.Strong("Définitions :"), html.Br(),
+            t.get('mod_model_m1', 'M1 : Modèle Sans Energy Star'), html.Br(),
+            t.get('mod_model_m2', 'M2 : Modèle Avec Energy Star'),
+        ], className="mb-0 small")
     ], color="success", className="mb-5 glass-card", style={"borderLeft": "5px solid #00fa9a"})
 
     # --- 2. TABLEAU COMPARATIF EXHAUSTIF ---
