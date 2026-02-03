@@ -1,21 +1,21 @@
 {
     "modele_1": {
-        "nom": "Random Forest",
-        "r2_test": 0.9999886834897773,
-        "rmse_test_log": 0.0043314556699901394,
-        "rmse_test_original": 0.8451348069214294,
-        "mape_test": 0.3046898983334227
+        "nom": "Gradient Boosting",
+        "r2_test": 0.650878118317574,
+        "rmse_test_log": 0.7607923706738192,
+        "rmse_test_original": 99.90954518555957,
+        "mape_test": 96.44061472669813
     },
     "modele_2": {
-        "nom": "Random Forest",
-        "r2_test": 0.9999884402758348,
-        "rmse_test_log": 0.004377753960065951,
-        "rmse_test_original": 0.824189402030681,
-        "mape_test": 0.3072439219280011
+        "nom": "Gradient Boosting",
+        "r2_test": 0.6832787451825679,
+        "rmse_test_log": 0.7246298474916945,
+        "rmse_test_original": 96.5126552909589,
+        "mape_test": 87.99571143956094
     },
     "gains": {
-        "r2": -2.4321394254123163e-07,
-        "rmse": -4.6298290075811634e-05,
-        "mape": -0.002554023594578403
+        "r2": 0.0324006268649939,
+        "rmse": 0.03616252318212476,
+        "mape": 8.444903287137194
     }
 }
