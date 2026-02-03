@@ -29,25 +29,30 @@ Nous avons comparé systématiquement plusieurs familles d'algorithmes pour iden
 | Famille | Modèles Testés | Performance (R²) | Observation |
 | :--- | :--- | :--- | :--- |
 | **Baseline** | Dummy Regressor | ~0.00 | Seuil de référence (moyenne simple). |
-| **Linéaire** | LinearRegression, Ridge, Lasso, ElasticNet | ~0.50 - 0.65 | Performance moyenne. Difficulté à capturer les non-linéarités complexes du parc immobilier. |
-| **Ensemble (Bagging)** | **Random Forest** | ~0.78 - 0.82 | Très performant, robuste aux outliers et stable. |
-| **Ensemble (Boosting)** | **Gradient Boosting (XGBoost)** | **> 0.85** | **Vainqueur**. Meilleure généralisation et précision optimale après tuning. |
+| **Linéaire** | Ridge | ~0.52 | Performance modérée. Difficulté à capturer les non-linéarités complexes du parc immobilier. |
+| **Ensemble (Bagging)** | **Random Forest** | ~0.60 - 0.63 | Performant et robuste aux outliers. |
+| **Ensemble (Boosting)** | **Gradient Boosting** | **0.65 - 0.68** | **Vainqueur**. Meilleure généralisation et précision optimale après tuning. |
 
 *L'optimisation des hyperparamètres a été réalisée via `GridSearchCV` (Validation Croisée 5-folds).*
 
 ### 1.3. Résultats Comparatifs : Avec vs Sans Energy Star Score
 Un point crucial de l'étude était de déterminer si le "Energy Star Score" est indispensable.
 
-| Scénario | Modèle Retenu | R² (Test) | RMSE | Analyse |
-| :--- | :--- | :--- | :--- | :--- |
-| **Avec Energy Star** | **Gradient Boosting** | **0.86** | **Base** | **Performance Optimale**. Le score apporte une information métier précieuse sur l'efficacité des systèmes. |
-| **Sans Energy Star** | **Gradient Boosting** | **0.82** | **+15%** | **Alternative Robuste**. Le modèle reste très performant en s'appuyant uniquement sur les caractéristiques structurelles (Surface, Usage, Année). |
+| Scénario | Modèle Retenu | R² (Test) | RMSE (log) | MAE (log) | MAPE | Analyse |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Avec Energy Star** | **Gradient Boosting** | **0.6833** | **0.7246** | **0.5506** | **88.00%** | **Performance Optimale**. Le score apporte une information métier précieuse sur l'efficacité énergétique. |
+| **Sans Energy Star** | **Gradient Boosting** | **0.6509** | **0.7608** | **0.5823** | **96.44%** | **Alternative Viable**. Le modèle reste performant en s'appuyant uniquement sur les caractéristiques structurelles (Surface, Usage, Année). |
 
-**Conclusion** : Le modèle "Sans Score" est suffisamment fiable pour être déployé sur l'ensemble du parc non audité.
+**Gains de Performance (Modèle 2 vs Modèle 1) :**
+*   **R² Score** : +0.0324 (+5.0%)
+*   **RMSE (log)** : -0.0362 (-4.8% d'erreur)
+*   **MAPE** : -8.44 points (amélioration de la précision relative)
+
+**Conclusion** : L'Energy Star Score améliore significativement les prédictions (+5% de variance expliquée), justifiant son coût pour les bâtiments prioritaires. Le modèle "Sans Score" reste néanmoins suffisamment fiable (R²=0.65) pour être déployé sur l'ensemble du parc non audité.
 
 ---
 
-## � Partie 2 : Le Dashboard de Pilotage (Application Dash)
+## 📊 Partie 2 : Le Dashboard de Pilotage (Application Dash)
 
 Pour rendre ces modèles accessibles, nous avons développé une application web interactive complète, bilingue et responsive.
 
