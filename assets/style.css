@@ -107,6 +107,11 @@ h6 {
     z-index: 1000;
 }
 
+/* Désactiver les interactions quand cachée */
+.sidebar[style*="display: none"] {
+    pointer-events: none !important;
+}
+
 .sidebar-nav .nav-link {
     color: var(--text-color);
     /* Couleur dynamique */
@@ -114,6 +119,7 @@ h6 {
     margin-bottom: 4px;
     border-radius: 6px;
     font-size: 14px;
+    pointer-events: auto;
 }
 
 .sidebar-nav .nav-link:hover {
@@ -137,6 +143,26 @@ h6 {
     color: var(--text-color) !important;
     border-radius: 6px;
     padding: 5px 12px;
+}
+
+/* Change text to white when input has value */
+.form-control:not(:placeholder-shown),
+.form-control:valid {
+    color: #ffffff !important;
+}
+
+/* Change dropdown selected value to white */
+.Select-value-label,
+.Select-menu-outer .Select-option.is-selected {
+    color: #ffffff !important;
+}
+
+/* Light theme: Change validated text to pure blue */
+[data-theme="light"] .form-control:not(:placeholder-shown),
+[data-theme="light"] .form-control:valid,
+[data-theme="light"] .Select-value-label,
+[data-theme="light"] .Select-menu-outer .Select-option.is-selected {
+    color: #0000ff !important;
 }
 
 .form-control:focus {
