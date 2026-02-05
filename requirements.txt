@@ -10,3 +10,4 @@ flask>=3.0.0
 openpyxl>=3.1.0
 nbformat>=4.2.0
 gunicorn
+fpdf2>=2.7.0

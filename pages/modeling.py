@@ -4,6 +4,9 @@ Page Modeling - Performance et comparaison des modèles
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
+import pandas as pd
+import os
+from utils.constants import RESULTS_DIR
 
 
 def layout(lang='FR'):
@@ -11,6 +14,15 @@ def layout(lang='FR'):
     Layout de la page Modeling avec métriques de performance
     """
     t = get_translations(lang)
+
+    # Chargement des données de comparaison globale (Notebook 5)
+    try:
+        comparison_df = pd.read_csv(os.path.join(RESULTS_DIR, 'comparison_rigorous.csv'))
+        # Arrondir les valeurs numériques pour un affichage propre
+        comparison_df = comparison_df.round(4)
+    except Exception as e:
+        comparison_df = pd.DataFrame(columns=["Métrique", "Modèle 1", "Modèle 2", "Gain"])
+        print(f"Erreur chargement comparison_rigorous.csv: {e}")
     
     # Tables de comparaison des modèles
     model_comparison = [
@@ -55,6 +67,15 @@ def layout(lang='FR'):
             dbc.Card([
                 dbc.Table([table_header, table_body], bordered=True, color='dark', hover=True, responsive=True, striped=True, className="mb-0")
             ], className="glass-card mb-4")
+        ]),
+
+        # Comparaison Globale (Notebook 5)
+        html.Div([
+            html.H3("Comparaison Globale des Modèles" if lang=='FR' else "Global Model Comparison", className="text-light"),
+            html.P("Comparaison détaillée entre le modèle sans Energy Star et le modèle avec Energy Star (Notebook 5).", className="text-muted mb-4"),
+            dbc.Card([
+                dbc.Table.from_dataframe(comparison_df, striped=True, bordered=True, hover=True, dark=True, responsive=True, className="mb-0")
+            ], className="glass-card mb-5")
         ]),
 
         # Feature Importance
