@@ -1,9 +1,7 @@
 // Configuration
 let currentSlide = 1;
-const totalSlides = 14;
+const totalSlides = 15;
 let isFullscreen = false;
-let autoPlayInterval = null;
-const autoPlayDelay = 10000; // 10 secondes
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
@@ -24,8 +22,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Événements de swipe pour mobiles
     setupSwipeEvents();
     
-    // Démarrer l'autoplay
-    startAutoPlay();
 });
 
 // Navigation entre slides
@@ -46,9 +42,6 @@ function showSlide(n) {
         
         // Mettre à jour les numéros de slide
         updateSlideNumbers();
-        
-        // Arrêter et redémarrer l'autoplay
-        restartAutoPlay();
     }
 }
 
@@ -195,28 +188,6 @@ function handleSwipe() {
         }
     }
 }
-
-// Autoplay
-function startAutoPlay() {
-    autoPlayInterval = setInterval(nextSlide, autoPlayDelay);
-}
-
-function stopAutoPlay() {
-    if (autoPlayInterval) {
-        clearInterval(autoPlayInterval);
-        autoPlayInterval = null;
-    }
-}
-
-function restartAutoPlay() {
-    stopAutoPlay();
-    startAutoPlay();
-}
-
-// Arrêter l'autoplay lors de l'interaction utilisateur
-document.addEventListener('keydown', () => restartAutoPlay());
-document.addEventListener('click', () => restartAutoPlay());
-document.addEventListener('touchstart', () => restartAutoPlay());
 
 // Navigation par clic sur la barre de progression
 document.getElementById('progress-bar').addEventListener('click', function(e) {
